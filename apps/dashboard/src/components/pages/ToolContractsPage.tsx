@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { apiClient } from '../../api/client'
 import { Badge, StatCard } from '../common/CommonUI'
 import {
+  AlertCircle,
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
@@ -16,32 +17,51 @@ import {
   FileCode,
 } from 'lucide-react'
 import type { ToolContract, ContractDriftResult, ContractStatus } from '../../types'
-import { MOCK_TOOL_CONTRACTS, MOCK_DRIFT_RESULTS } from '../../data/mockData'
+
 
 export const ToolContractsPage: React.FC = () => {
-  const [contracts, setContracts] = useState<ToolContract[]>(MOCK_TOOL_CONTRACTS)
-  const [selectedContract, setSelectedContract] = useState<ToolContract | null>(MOCK_TOOL_CONTRACTS[0])
-  const [driftResult, setDriftResult] = useState<ContractDriftResult | null>(
-    MOCK_DRIFT_RESULTS['postgres-mcp-upstream:execute_sql_query'] || null
-  )
+  const [contracts, setContracts] = useState<ToolContract[]>([])
+  const [selectedContract, setSelectedContract] = useState<ToolContract | null>(null)
+  const [driftResult, setDriftResult] = useState<ContractDriftResult | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterServer, setFilterServer] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [isFromMock, setIsFromMock] = useState(true)
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [driftError, setDriftError] = useState<string | null>(null)
   const [showRawSchema, setShowRawSchema] = useState(false)
 
   const loadContracts = async () => {
     setLoading(true)
-    const res = await apiClient.getContracts()
-    setContracts(res.data)
-    setIsFromMock(res.isFromMock)
-    setApiError(res.error || null)
-    if (res.data.length > 0) {
-      setSelectedContract((prev) => prev || res.data[0])
+
+    try {
+      const res = await apiClient.getContracts()
+
+      setContracts(res.data)
+      setIsFromMock(res.isFromMock)
+      setApiError(res.error || null)
+
+      if (res.data.length > 0) {
+        setSelectedContract((prev) => {
+          if (!prev) return res.data[0]
+
+          // Preserve selection only if it exists in the newly loaded registry.
+          return (
+            res.data.find(
+              (contract) =>
+                contract.serverId === prev.serverId &&
+                contract.toolName === prev.toolName
+            ) || res.data[0]
+          )
+        })
+      } else {
+        setSelectedContract(null)
+        setDriftResult(null)
+      }
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -49,10 +69,41 @@ export const ToolContractsPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (selectedContract) {
-      apiClient.getContractDrift(selectedContract.serverId, selectedContract.toolName).then((res) => {
-        setDriftResult(res.data)
+    if (!selectedContract) {
+      setDriftResult(null)
+      setDriftError(null)
+      return
+    }
+
+    let cancelled = false
+    setDriftResult(null)
+    setDriftError(null)
+
+    apiClient
+      .getContractDrift(
+        selectedContract.serverId,
+        selectedContract.toolName
+      )
+      .then((res) => {
+        if (!cancelled) {
+          if (res.error) {
+            setDriftError(res.error)
+            setDriftResult(null)
+          } else {
+            setDriftResult(res.data)
+            setDriftError(null)
+          }
+        }
       })
+      .catch((err) => {
+        if (!cancelled) {
+          setDriftError(err instanceof Error ? err.message : 'Failed to query drift')
+          setDriftResult(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [selectedContract])
 
@@ -72,11 +123,10 @@ export const ToolContractsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Simulation / Mock Banner */}
       <div
-        className={`rounded-xl p-3 px-4 flex items-center justify-between text-xs border ${
-          isFromMock
+        className={`rounded-xl p-3 px-4 flex items-center justify-between text-xs border ${isFromMock
             ? 'bg-indigo-950/30 border-indigo-800/40 text-indigo-300'
             : 'bg-emerald-950/30 border-emerald-800/40 text-emerald-300'
-        }`}
+          }`}
       >
         <span>
           <strong className="font-semibold">{isFromMock ? 'Demonstration Mode:' : 'Live Registry:'}</strong> MCP tool contracts supporting canonical ContractStatus values (`ACTIVE`, `DRIFTED`, `DEPRECATED`, `BLOCKED`, `PENDING_REVIEW`). Prepared for `GET /api/contracts` & `GET /api/contracts/:serverId/:toolName/drift`.
@@ -221,11 +271,10 @@ export const ToolContractsPage: React.FC = () => {
                       setSelectedContract(contract)
                       setShowRawSchema(false)
                     }}
-                    className={`p-4 cursor-pointer transition-colors flex items-center justify-between ${
-                      isSelected
+                    className={`p-4 cursor-pointer transition-colors flex items-center justify-between ${isSelected
                         ? 'bg-indigo-950/30 border-l-2 border-indigo-500'
                         : 'hover:bg-slate-800/30'
-                    }`}
+                      }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -288,7 +337,15 @@ export const ToolContractsPage: React.FC = () => {
               </div>
 
               {/* Drift details if present */}
-              {driftResult && driftResult.hasDrift ? (
+              {driftError ? (
+                <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-5 text-center">
+                  <AlertCircle className="w-6 h-6 text-slate-500 mx-auto mb-1.5" />
+                  <h4 className="text-xs font-semibold text-slate-300">Drift Verification Unavailable</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-0.5">
+                    {driftError}
+                  </p>
+                </div>
+              ) : driftResult && driftResult.hasDrift ? (
                 <div className="space-y-3">
                   <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-xs font-semibold text-orange-400 mb-1">
@@ -321,13 +378,12 @@ export const ToolContractsPage: React.FC = () => {
                               <span className="text-[11px] text-slate-400">{diff.description}</span>
                             </div>
                             <span
-                              className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded ${
-                                diff.changeType === 'ADDED'
+                              className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded ${diff.changeType === 'ADDED'
                                   ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                                   : diff.changeType === 'REMOVED'
-                                  ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                                  : 'bg-amber-950 text-amber-300 border border-amber-800'
-                              }`}
+                                    ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                    : 'bg-amber-950 text-amber-300 border border-amber-800'
+                                }`}
                             >
                               {diff.changeType}
                             </span>
@@ -337,13 +393,18 @@ export const ToolContractsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : driftResult && !driftResult.hasDrift ? (
                 <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-5 text-center">
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
                   <h4 className="text-xs font-semibold text-emerald-300">Contract In Strict Sync</h4>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
                     Status: <Badge type={selectedContract.status as ContractStatus} />. Definition hash matches the upstream MCP tool schema. No unauthorized parameter drift detected.
                   </p>
+                </div>
+              ) : (
+                <div className="bg-slate-950/40 border border-slate-800/80 rounded-lg p-5 text-center text-xs text-slate-400">
+                  <RefreshCw className="w-4 h-4 text-slate-500 mx-auto mb-2 animate-spin" />
+                  Checking contract drift integrity...
                 </div>
               )}
 

@@ -8,11 +8,11 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
   it('renders navigation bar with all 4 primary operational views', () => {
     render(<App />)
 
-    expect(screen.getByText('TARS')).toBeInTheDocument()
-    expect(screen.getByText('Security Events')).toBeInTheDocument()
-    expect(screen.getByText('Tool Contracts & Drift')).toBeInTheDocument()
-    expect(screen.getByText('Replay & Regression')).toBeInTheDocument()
-    expect(screen.getByText('Decision Evidence')).toBeInTheDocument()
+    expect(screen.getByText('TARS')).toBeTruthy()
+    expect(screen.getByText('Security Events')).toBeTruthy()
+    expect(screen.getByText('Tool Contracts & Drift')).toBeTruthy()
+    expect(screen.getByText('Replay & Regression')).toBeTruthy()
+    expect(screen.getByText('Decision Evidence')).toBeTruthy()
   })
 
   it('supports REQUIRE_APPROVAL decision with amber badge and filter option in Security Events', () => {
@@ -21,21 +21,21 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     // Verify REQUIRE_APPROVAL option is in the filter select
     const selects = screen.getAllByRole('combobox')
     expect(selects.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByRole('option', { name: 'REQUIRE_APPROVAL' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'REQUIRE_APPROVAL' })).toBeTruthy()
 
     // Verify amber badge is rendered for approval-required events
     expect(screen.getAllByText('REQUIRE APPROVAL').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('navigates to Tool Contracts & Drift page and displays canonical contract statuses', () => {
+  it('navigates to Tool Contracts & Drift page and displays canonical contract statuses', async () => {
     render(<App />)
 
     const contractsTabButton = screen.getByRole('button', { name: /Tool Contracts & Drift/i })
     fireEvent.click(contractsTabButton)
 
-    expect(screen.getByText('Tool Contracts & Canonical Drift')).toBeInTheDocument()
-    expect(screen.getByText('Registered Tool Contracts')).toBeInTheDocument()
-    expect(screen.getByText(/Canonical Definition Hash/i)).toBeInTheDocument()
+    expect(screen.getByText('Tool Contracts & Canonical Drift')).toBeTruthy()
+    expect(screen.getByText('Registered Tool Contracts')).toBeTruthy()
+    expect(await screen.findByText(/Canonical Definition Hash/i)).toBeTruthy()
 
     // Verify canonical ContractStatus indicators: ACTIVE, DRIFTED, BLOCKED, PENDING_REVIEW, DEPRECATED
     expect(screen.getAllByText('ACTIVE').length).toBeGreaterThanOrEqual(1)
@@ -51,9 +51,9 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const replayTabButton = screen.getByRole('button', { name: /Replay & Regression/i })
     fireEvent.click(replayTabButton)
 
-    expect(screen.getByText('Security Replay & Regression Suite')).toBeInTheDocument()
-    expect(screen.getByText('Replay Attack Harness')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Run All Replay Tests/i })).toBeInTheDocument()
+    expect(screen.getByText('Security Replay & Regression Suite')).toBeTruthy()
+    expect(screen.getByText('Replay Attack Harness')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Run All Replay Tests/i })).toBeTruthy()
   })
 
   it('navigates to Decision Evidence and displays audit breakdown', () => {
@@ -63,8 +63,8 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     fireEvent.click(evidenceTabButton)
 
     expect(screen.getAllByText('Auditable Decision Evidence').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText(/Deterministic Policy Evaluation Breakdown/i)).toBeInTheDocument()
-    expect(screen.getByText(/Prompt-Injection Risk Signal/i)).toBeInTheDocument()
+    expect(screen.getByText(/Deterministic Policy Evaluation Breakdown/i)).toBeTruthy()
+    expect(screen.getByText(/Prompt-Injection Risk Signal/i)).toBeTruthy()
   })
 
   it('verifies apiClient methods match agreed endpoints envelope', async () => {
@@ -75,10 +75,11 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     expect(typeof apiClient.runReplaySuite).toBe('function')
     expect(typeof apiClient.subscribeEventStream).toBe('function')
 
-    // Calling without active server returns gracefully enveloped data from fallback
+    // Calling returns gracefully enveloped data from live gateway or fallback
     const res = await apiClient.getEvents()
     expect(res).toHaveProperty('data')
     expect(Array.isArray(res.data)).toBe(true)
-    expect(res.isFromMock).toBe(true)
+    expect(typeof res.isFromMock).toBe('boolean')
   })
 })
+

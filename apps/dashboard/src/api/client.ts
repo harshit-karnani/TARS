@@ -191,7 +191,25 @@ export class TarsApiClient {
    * GET /api/replay/runs
    */
   async getReplayRuns(): Promise<ApiFetchResult<ReplayRunSummary>> {
-    return this.fetchEnvelope<ReplayRunSummary>('/api/replay/runs', MOCK_REPLAY_SUMMARY)
+    const res = await this.fetchEnvelope<ReplayRunSummary | ReplayRunSummary[]>(
+      '/api/replay/runs',
+      MOCK_REPLAY_SUMMARY
+    )
+    if (Array.isArray(res.data)) {
+      const summary = res.data[0] || MOCK_REPLAY_SUMMARY
+      return {
+        data: summary,
+        isFromMock: res.isFromMock,
+        error: res.error,
+        rawEnvelope: res.rawEnvelope
+          ? {
+              ...res.rawEnvelope,
+              data: summary,
+            }
+          : undefined,
+      }
+    }
+    return res as ApiFetchResult<ReplayRunSummary>
   }
 
   /**

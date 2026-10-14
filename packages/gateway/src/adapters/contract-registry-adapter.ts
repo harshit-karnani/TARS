@@ -142,7 +142,7 @@ export class ContractRegistryAdapter implements IContractRegistry {
   }
 
   private seedDefaultContracts(): void {
-    const defaultList: Array<Omit<ToolContract, 'createdAt' | 'updatedAt'>> = [
+    const defaultList: Array<Omit<ToolContract, 'createdAt' | 'updatedAt' | 'definitionHash'>> = [
       {
         serverId: 'system-fs-server',
         toolName: 'read_file',
@@ -152,7 +152,6 @@ export class ContractRegistryAdapter implements IContractRegistry {
           properties: { filePath: { type: 'string' } },
           required: ['filePath'],
         },
-        definitionHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
         version: '1.0.0',
         status: 'ACTIVE',
       },
@@ -165,7 +164,6 @@ export class ContractRegistryAdapter implements IContractRegistry {
           properties: { query: { type: 'string' } },
           required: ['query'],
         },
-        definitionHash: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
         version: '1.0.0',
         status: 'ACTIVE',
       },
@@ -181,7 +179,6 @@ export class ContractRegistryAdapter implements IContractRegistry {
           },
           required: ['filePath', 'content'],
         },
-        definitionHash: '4a53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
         version: '1.0.0',
         status: 'ACTIVE',
       },
@@ -189,8 +186,13 @@ export class ContractRegistryAdapter implements IContractRegistry {
 
     for (const contract of defaultList) {
       const now = new Date().toISOString();
+      const definitionHash = this.computeDefinitionHash({
+        name: contract.toolName,
+        description: contract.description,
+        inputSchema: contract.inputSchema,
+      });
       const key = `${contract.serverId}:${contract.toolName}`;
-      this.contracts.set(key, { ...contract, createdAt: now, updatedAt: now });
+      this.contracts.set(key, { ...contract, definitionHash, createdAt: now, updatedAt: now });
     }
   }
 }

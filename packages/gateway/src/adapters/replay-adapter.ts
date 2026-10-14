@@ -1,4 +1,9 @@
-import type { ReplayRunSummary } from '@tars/shared-types';
+import type {
+  ReplayRunSummary,
+  ReplayResult,
+  ToolCallRequest,
+  PolicyDecision,
+} from '@tars/shared-types';
 
 /**
  * ReplayAdapter stores and retrieves security attack replay run results.
@@ -21,6 +26,103 @@ export class ReplayAdapter {
 
   public async recordReplayRun(run: ReplayRunSummary): Promise<void> {
     this.runs.unshift(run);
+  }
+
+  public async runSuite(policyEngine?: {
+    evaluate: (req: ToolCallRequest) => PolicyDecision;
+    getPolicyVersion: () => string;
+  }): Promise<ReplayRunSummary> {
+    const policyVersion = policyEngine ? policyEngine.getPolicyVersion() : '1.0.0';
+    const runId = `live-replay-${Date.now()}`;
+    const testCases: Array<{
+      caseId: string;
+      toolName: string;
+      serverId: string;
+      arguments: Record<string, unknown>;
+      expectedAction: 'ALLOW' | 'BLOCK' | 'REQUIRE_APPROVAL';
+      expectedReasonCode: string;
+    }> = [
+      {
+        caseId: 'attack-path-traversal-01',
+        toolName: 'read_file',
+        serverId: 'system-fs-server',
+        arguments: { filePath: '../../../../etc/passwd' },
+        expectedAction: 'BLOCK',
+        expectedReasonCode: 'SENSITIVE_PATH_ACCESS',
+      },
+      {
+        caseId: 'attack-shell-exec-02',
+        toolName: 'shell_exec',
+        serverId: 'system-fs-server',
+        arguments: { command: 'cat /etc/shadow' },
+        expectedAction: 'BLOCK',
+        expectedReasonCode: 'SENSITIVE_PATH_ACCESS',
+      },
+      {
+        caseId: 'safe-read-query-03',
+        toolName: 'read_file',
+        serverId: 'system-fs-server',
+        arguments: { filePath: 'safe_document.txt' },
+        expectedAction: 'ALLOW',
+        expectedReasonCode: 'POLICY_ALLOW',
+      },
+      {
+        caseId: 'unauthorized-mutation-04',
+        toolName: 'write_file',
+        serverId: 'system-fs-server',
+        arguments: { filePath: 'protected.json', content: 'tamper' },
+        expectedAction: 'REQUIRE_APPROVAL',
+        expectedReasonCode: 'APPROVAL_REQUIRED',
+      },
+    ];
+
+    const results: ReplayResult[] = testCases.map((tc) => {
+      const startTime = performance.now();
+      let actualAction: 'ALLOW' | 'BLOCK' | 'REQUIRE_APPROVAL' = 'BLOCK';
+      let reasonCode = 'UNKNOWN';
+      if (policyEngine) {
+        const decision = policyEngine.evaluate({
+          requestId: `req-${tc.caseId}`,
+          toolName: tc.toolName,
+          serverId: tc.serverId,
+          arguments: tc.arguments,
+          timestamp: new Date().toISOString(),
+        });
+        actualAction = decision.action;
+        reasonCode = decision.reasonCode;
+      }
+      const latencyMs = Math.round((performance.now() - startTime) * 100) / 100;
+      const passed = actualAction === tc.expectedAction;
+
+      return {
+        runId,
+        caseId: tc.caseId,
+        expectedAction: tc.expectedAction,
+        actualAction,
+        passed,
+        latencyMs,
+        policyVersion,
+        timestamp: new Date().toISOString(),
+        reasonCode,
+      };
+    });
+
+    const passedCases = results.filter((r) => r.passed).length;
+    const summary: ReplayRunSummary = {
+      runId,
+      timestamp: new Date().toISOString(),
+      policyVersion,
+      totalCases: results.length,
+      passedCases,
+      failedCases: results.length - passedCases,
+      passRate: results.length > 0 ? passedCases / results.length : 1.0,
+      averageLatencyMs:
+        Math.round((results.reduce((acc, r) => acc + r.latencyMs, 0) / results.length) * 100) / 100,
+      results,
+    };
+
+    this.runs.unshift(summary);
+    return summary;
   }
 
   private seedBaselineRuns(): void {

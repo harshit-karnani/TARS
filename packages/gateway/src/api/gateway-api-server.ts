@@ -159,26 +159,12 @@ export class GatewayApiServer {
 
         const contract = await this.contractRegistry.getContract(serverId, toolName);
         if (!contract) {
-          const unregisteredResult: ContractDriftResult = {
-            serverId,
-            toolName,
-            contractVersion: 'unregistered',
-            hasDrift: true,
-            expectedHash: 'none',
-            actualHash: 'none',
-            detectedAt: new Date().toISOString(),
-            schemaDifferences: [
-              {
-                path: 'root',
-                changeType: 'REMOVED',
-                description: `No registered contract found for tool '${toolName}' on server '${serverId}'`,
-              },
-            ],
-          };
-
-          this.sendJson<ContractDriftResult>(res, 200, {
-            success: true,
-            data: unregisteredResult,
+          this.sendJson(res, 404, {
+            success: false,
+            error: {
+              code: 'NOT_FOUND',
+              message: `Contract for tool '${toolName}' on server '${serverId}' not found in registry`,
+            },
             timestamp: new Date().toISOString(),
           });
           return;
@@ -208,12 +194,22 @@ export class GatewayApiServer {
         return;
       }
 
-      // 6. Security Replay Runs: GET /api/replay/runs
+      // 6. Security Replay Runs: GET /api/replay/runs, POST /api/replay/run
       if (pathname === '/api/replay/runs' && req.method === 'GET') {
         const runs = await this.replayAdapter.getReplayRuns();
         this.sendJson<ReplayRunSummary[]>(res, 200, {
           success: true,
           data: runs,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (pathname === '/api/replay/run' && req.method === 'POST') {
+        const runSummary = await this.replayAdapter.runSuite(this.gateway.getPolicyEngine());
+        this.sendJson<ReplayRunSummary>(res, 200, {
+          success: true,
+          data: runSummary,
           timestamp: new Date().toISOString(),
         });
         return;

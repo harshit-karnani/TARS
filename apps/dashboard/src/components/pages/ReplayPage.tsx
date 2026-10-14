@@ -16,7 +16,7 @@ export const ReplayPage: React.FC = () => {
     const res = await apiClient.getReplayRuns()
     setSummary(res.data)
     setIsFromMock(res.isFromMock)
-    if (res.data.results.length > 0) {
+    if (res.data?.results && res.data.results.length > 0) {
       setSelectedResult(res.data.results[0])
     }
     setLoading(false)
@@ -31,7 +31,7 @@ export const ReplayPage: React.FC = () => {
     const res = await apiClient.runReplaySuite()
     setSummary(res.data)
     setIsFromMock(res.isFromMock)
-    if (res.data.results.length > 0) {
+    if (res.data?.results && res.data.results.length > 0) {
       setSelectedResult(res.data.results[0])
     }
     setIsRunning(false)
