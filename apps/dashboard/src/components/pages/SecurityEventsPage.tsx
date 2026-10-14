@@ -106,52 +106,62 @@ export const SecurityEventsPage: React.FC<{
   }
 
   return (
-    <div className="space-y-6">
-      {/* Real Gateway Connection & Mode Banner */}
+    <div className="space-y-8 font-body">
+      {/* Giant Condensed Left-Aligned Headline matching Stitch UI */}
+      <section className="border-b-[1.5px] border-[#1A1614] pb-6">
+        <h1 className="font-headline text-6xl sm:text-8xl md:text-9xl tracking-tight leading-[0.88] uppercase text-[#1A1614] select-none m-0">
+          WHAT GOT<br />BLOCKED.
+        </h1>
+        <p className="mt-4 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold">
+          01 // MCP RUNTIME GATEWAY SECURITY TIMELINE & INTERCEPTION STREAM
+        </p>
+      </section>
+
+      {/* Gateway Connection Banner (Brutalist Notice) */}
       <div
-        className={`rounded-xl p-3 px-4 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs border ${
+        className={`p-4 border-[1.5px] border-[#1A1614] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-[4px_4px_0px_#1A1614] ${
           sseState.connected && !isFromMock
-            ? 'bg-emerald-950/30 border-emerald-800/40 text-emerald-300'
+            ? 'bg-[#2F6B3F] text-white'
             : isFromMock
-            ? 'bg-indigo-950/30 border-indigo-800/40 text-indigo-300'
-            : 'bg-amber-950/30 border-amber-800/40 text-amber-300'
+            ? 'bg-[#fcf9f2] text-[#1A1614]'
+            : 'bg-[#C99A1F] text-[#1A1614]'
         }`}
       >
         <div className="flex items-center gap-2.5">
           <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+            className={`w-2.5 h-2.5 rounded-none shrink-0 ${
               sseState.connected
-                ? 'bg-emerald-400 animate-pulse'
+                ? 'bg-white animate-pulse'
                 : sseState.connecting
-                ? 'bg-amber-400 animate-ping'
-                : 'bg-slate-500'
+                ? 'bg-[#B3261E] animate-ping'
+                : 'bg-[#1A1614]'
             }`}
           />
           <div>
             {sseState.connected && !isFromMock ? (
               <span>
-                <strong className="font-semibold text-emerald-200">Gateway Live Stream:</strong> Connected to SSE <code>/api/events/stream</code> at {apiClient.getBaseUrl()}
+                <strong className="font-bold uppercase tracking-wider">GATEWAY STREAM ACTIVE:</strong> Connected to SSE <code>/api/events/stream</code> at {apiClient.getBaseUrl()}
               </span>
             ) : isFromMock ? (
               <span>
-                <strong className="font-semibold text-indigo-200">Demonstration Mode:</strong> Displaying mock security events ({apiError ? `Gateway offline: ${apiError}` : 'Awaiting live backend'})
+                <strong className="font-bold uppercase tracking-wider">DEMONSTRATION RECORD:</strong> Displaying representative security event data ({apiError ? `Gateway offline: ${apiError}` : 'Awaiting live runtime'})
               </span>
             ) : (
               <span>
-                <strong className="font-semibold text-amber-200">Gateway Reconnecting:</strong> {sseState.error || 'Connection dropped'} (retry in {sseState.retryIn || 3}s)
+                <strong className="font-bold uppercase tracking-wider">GATEWAY RECONNECTING:</strong> {sseState.error || 'Connection dropped'} (retry in {sseState.retryIn || 3}s)
               </span>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="font-mono text-[10px] bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700/60">
+          <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
             {sseState.connected ? 'LIVE SSE' : isFromMock ? 'MOCK DATA' : 'OFFLINE'}
           </span>
           <button
             onClick={loadEvents}
             disabled={loading}
-            className="p-1 hover:bg-slate-800/60 rounded text-slate-300 hover:text-white transition cursor-pointer"
+            className="p-1.5 bg-[#f4f1ea] text-[#1A1614] hover:bg-[#1A1614] hover:text-white border border-[#1A1614] transition-colors cursor-pointer"
             title="Refresh events from API"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -159,19 +169,19 @@ export const SecurityEventsPage: React.FC<{
         </div>
       </div>
 
-      {/* Top summary stats */}
+      {/* Top summary stats in brutalist cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Intercepted Calls"
           value={events.length}
           subtitle="Audit event records"
-          icon={<ShieldCheck className="w-4 h-4 text-emerald-400" />}
+          icon={<ShieldCheck className="w-5 h-5" />}
         />
         <StatCard
           title="Blocked Exploits"
           value={blockedCount}
           subtitle="Deterministic policy blocks"
-          icon={<ShieldAlert className="w-4 h-4 text-rose-400" />}
+          icon={<ShieldAlert className="w-5 h-5 text-[#B3261E]" />}
           trend="Enforced"
           trendPositive={true}
         />
@@ -179,7 +189,7 @@ export const SecurityEventsPage: React.FC<{
           title="Approval Required"
           value={approvalCount}
           subtitle="Human-in-the-loop gates"
-          icon={<AlertCircle className="w-4 h-4 text-amber-400" />}
+          icon={<AlertCircle className="w-5 h-5 text-[#C99A1F]" />}
           trend={approvalCount > 0 ? 'Action Queue' : 'Zero Pending'}
           trendPositive={approvalCount === 0}
         />
@@ -187,10 +197,35 @@ export const SecurityEventsPage: React.FC<{
           title="Stream State"
           value={sseState.connected ? 'Active' : sseState.connecting ? 'Connecting' : 'Standby'}
           subtitle="SSE /api/events/stream"
-          icon={<Radio className={`w-4 h-4 ${sseState.connected ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />}
+          icon={<Radio className={`w-5 h-5 ${sseState.connected ? 'text-[#2F6B3F] animate-pulse' : 'text-[#1A1614]'}`} />}
           trend={sseState.connected ? 'Live Feed' : 'Mock Mode'}
           trendPositive={sseState.connected}
         />
+      </div>
+
+      {/* Stitch 4 Minimalist Buttons for Quick Action Filter */}
+      <div className="flex flex-wrap items-center gap-2.5 pt-2">
+        {(['ALL', 'BLOCK', 'REQUIRE_APPROVAL', 'ALLOW'] as const).map((act) => {
+          const isActive = filterAction === act
+          const label = act === 'ALL' ? 'ALL' : act === 'BLOCK' ? 'BLOCKED' : act === 'REQUIRE_APPROVAL' ? 'APPROVAL REQ.' : 'ALLOWED'
+          return (
+            <button
+              key={act}
+              type="button"
+              onClick={() => {
+                setFilterAction(act)
+                setCurrentPage(1)
+              }}
+              className={`px-5 py-2 text-xs font-mono font-bold tracking-widest uppercase border-[1.5px] border-[#1A1614] transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-[#1A1614] text-[#fcf9f2] shadow-[3px_3px_0px_#BF6B45]'
+                  : 'bg-[#fcf9f2] text-[#1A1614] hover:bg-[#1A1614] hover:text-[#fcf9f2]'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       {/* Timeline Filters & Control Bar */}

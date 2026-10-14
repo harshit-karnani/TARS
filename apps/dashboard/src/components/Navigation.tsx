@@ -11,70 +11,79 @@ import type { NavTab } from '../types'
 interface NavigationProps {
   currentTab: NavTab
   onSelectTab: (tab: NavTab) => void
+  onOpenIntro?: () => void
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab }) => {
+export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab, onOpenIntro }) => {
   const navItems = [
     {
       id: 'events' as NavTab,
       label: 'Security Events',
-      icon: <ShieldAlert className="w-4 h-4 mr-2" />,
+      icon: <ShieldAlert className="w-4 h-4 mr-2.5 text-emerald-400" />,
       badge: 'MOCK',
     },
     {
       id: 'contracts' as NavTab,
       label: 'Tool Contracts & Drift',
-      icon: <FileCode2 className="w-4 h-4 mr-2" />,
+      icon: <FileCode2 className="w-4 h-4 mr-2.5 text-cyan-400" />,
       badge: 'PREVIEW',
     },
     {
       id: 'replay' as NavTab,
       label: 'Replay & Regression',
-      icon: <PlaySquare className="w-4 h-4 mr-2" />,
+      icon: <PlaySquare className="w-4 h-4 mr-2.5 text-amber-400" />,
       badge: 'SIMULATED',
     },
     {
       id: 'evidence' as NavTab,
       label: 'Decision Evidence',
-      icon: <FileCheck2 className="w-4 h-4 mr-2" />,
+      icon: <FileCheck2 className="w-4 h-4 mr-2.5 text-purple-400" />,
     },
   ]
 
   return (
-    <aside className="w-64 bg-slate-950/80 border-r border-slate-800/80 flex flex-col justify-between shrink-0">
+    <aside className="w-68 bg-[#fcf9f2] border-r-[1.5px] border-[#1A1614] flex flex-col justify-between shrink-0 font-mono select-none">
       <div>
-        <div className="h-16 flex items-center px-6 border-b border-slate-800/80">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+        {/* Brand Header */}
+        <div className="h-18 flex items-center px-6 border-b-[1.5px] border-[#1A1614] bg-[#f4f1ea]">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-[#1A1614] text-[#fcf9f2] border-[1.5px] border-[#1A1614] flex items-center justify-center shadow-[2px_2px_0px_#BF6B45]">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-lg tracking-wide text-slate-100 flex items-center gap-1.5">
+              <span className="font-headline text-2xl tracking-wider text-[#1A1614] flex items-center gap-2">
                 TARS
-                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-1.5 py-0.5 rounded border border-indigo-500/30">
-                  MVP
+                <span className="text-[10px] bg-[#BF6B45] text-white font-mono px-1.5 py-0.5 border border-[#1A1614] font-bold">
+                  MCP
                 </span>
               </span>
-              <p className="text-[11px] text-slate-500 font-medium">Contract Security Gateway</p>
+              <p className="text-[10px] text-[#1A1614]/70 font-mono tracking-wider uppercase font-semibold">
+                SECURITY GATEWAY
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="px-3 py-4">
-          <p className="px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Operations
-          </p>
-          <nav className="space-y-1">
+        {/* Navigation list */}
+        <div className="px-3 py-6">
+          <div className="flex items-center justify-between px-3 mb-4">
+            <span className="text-[10px] font-bold text-[#1A1614]/60 uppercase tracking-widest font-mono">
+              01 // OPERATIONS
+            </span>
+            <span className="h-2 w-2 bg-[#2F6B3F] inline-block"></span>
+          </div>
+
+          <nav className="space-y-2">
             {navItems.map((item) => {
               const active = currentTab === item.id
               return (
                 <button
                   key={item.id}
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-mono font-bold tracking-wider uppercase transition-all cursor-pointer border-[1.5px] border-[#1A1614] ${
                     active
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      ? 'bg-[#1A1614] text-[#fcf9f2] shadow-[3px_3px_0px_#BF6B45]'
+                      : 'bg-[#fcf9f2] text-[#1A1614] hover:bg-[#E8B79A]/40'
                   }`}
                 >
                   <div className="flex items-center">
@@ -83,10 +92,10 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab 
                   </div>
                   {item.badge && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-medium ${
+                      className={`text-[9px] px-1.5 py-0.5 font-mono font-bold tracking-wider border border-[#1A1614] ${
                         active
-                          ? 'bg-indigo-800 text-indigo-100'
-                          : 'bg-slate-800 text-slate-400'
+                          ? 'bg-[#BF6B45] text-white'
+                          : 'bg-[#f4f1ea] text-[#1A1614]'
                       }`}
                     >
                       {item.badge}
@@ -99,16 +108,31 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab 
         </div>
       </div>
 
-      <div className="p-4 border-t border-slate-800/80">
-        <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-3 text-xs">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-2 h-2 rounded-full bg-slate-500"></span>
-            <span className="font-semibold text-slate-300">Gateway Status</span>
+      {/* Footer System Box */}
+      <div className="p-4 border-t-[1.5px] border-[#1A1614] bg-[#f4f1ea]">
+        <div className="border-[1.5px] border-[#1A1614] bg-[#fcf9f2] p-3 shadow-[3px_3px_0px_#1A1614] mb-3">
+          <div className="flex items-center justify-between text-[10px] font-bold text-[#1A1614]/70 mb-1">
+            <span>AUDIT ENCLAVE</span>
+            <span className="text-[#2F6B3F] font-bold uppercase">ARMED</span>
           </div>
-          <p className="text-slate-400 text-[11px]">Backend API: Standby</p>
-          <p className="text-slate-500 text-[10px] mt-0.5 font-mono">Audit: In Alignment Phase</p>
+          <p className="text-[10px] text-[#1A1614]/70 font-mono mb-2">
+            Deterministic Runtime Policy Firewall
+          </p>
+          {onOpenIntro && (
+            <button
+              onClick={onOpenIntro}
+              className="w-full text-center text-[10px] font-mono font-bold uppercase text-[#1A1614] bg-[#BF6B45] text-white hover:bg-[#1A1614] border-[1.5px] border-[#1A1614] py-1.5 shadow-[2px_2px_0px_#1A1614] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+            >
+              ↺ Decryption Sequence (5s)
+            </button>
+          )}
+        </div>
+        <div className="flex justify-between items-center text-[9px] text-[#1A1614]/70 font-mono tracking-wider font-semibold">
+          <span>GW: MCP-SFO-01</span>
+          <span className="text-[#2F6B3F] font-bold">ONLINE</span>
         </div>
       </div>
     </aside>
   )
 }
+

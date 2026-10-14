@@ -1,15 +1,124 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 
 body {
   margin: 0;
-  background-color: #0b0f19;
-  color: #f1f5f9;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f4f1ea;
+  color: #1a1614;
+  font-family: 'Space Grotesk', sans-serif;
   overflow-x: hidden;
+}
+
+.font-headline {
+  font-family: 'Anton', sans-serif;
+}
+
+.font-mono-tars {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-body-tars {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Editorial Brutalist Inks & Surfaces */
+.bg-cream {
+  background-color: #f4f1ea;
+}
+
+.text-ink {
+  color: #1a1614;
+}
+
+.border-ink {
+  border-color: #1a1614;
+}
+
+.bg-terracotta {
+  background-color: #bf6b45;
+}
+
+/* Brutalist Hard Offset Shadow Utility */
+.shadow-brutalist-sm {
+  box-shadow: 2px 2px 0px #1a1614;
+}
+
+.shadow-brutalist {
+  box-shadow: 4px 4px 0px #1a1614;
+}
+
+.shadow-brutalist-lg {
+  box-shadow: 6px 6px 0px #1a1614;
+}
+
+/* Terminal Outer Bezel glow */
+.terminal-outer-bezel {
+  background: radial-gradient(120% 120% at 50% 50%, #0d1217 0%, #020406 100%);
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 25px 60px -15px rgba(0, 0, 0, 0.95),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Realistic CRT / LCD Display Surface */
+.lcd-display-surface {
+  background-color: #dfe7e2;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(240, 246, 242, 0.96) 0%, rgba(215, 226, 220, 0.92) 100%),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(16, 42, 34, 0.035) 0px,
+      rgba(16, 42, 34, 0.035) 2px,
+      transparent 2px,
+      transparent 6px
+    );
+  box-shadow: 
+    inset 0 0 35px rgba(15, 28, 24, 0.22),
+    inset 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 0 50px rgba(180, 210, 195, 0.12);
+}
+
+/* Scanline overlay */
+.scanlines-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(10, 30, 25, 0.04) 50%,
+    rgba(10, 30, 25, 0.04)
+  );
+  background-size: 100% 4px;
+}
+
+/* Dark Tactical Bezel for Cards & Panels */
+.tactical-card {
+  background: linear-gradient(180deg, rgba(13, 20, 26, 0.85) 0%, rgba(7, 11, 15, 0.95) 100%);
+  border: 1px solid rgba(80, 110, 100, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px -6px rgba(0, 0, 0, 0.6);
+}
+
+.tactical-card:hover {
+  border-color: rgba(100, 160, 140, 0.35);
+}
+
+.tars-title {
+  font-family: 'Space Grotesk', 'JetBrains Mono', monospace;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+}
+
+@keyframes subtle-flicker {
+  0%, 100% { opacity: 0.97; }
+  50% { opacity: 1; }
+  82% { opacity: 0.94; }
+  83% { opacity: 0.98; }
+}
+
+.flicker {
+  animation: subtle-flicker 0.12s infinite;
 }
 
 /* Custom scrollbars */
@@ -19,14 +128,15 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #070c10;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
+  background: #1b2830;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #2b3d49;
 }

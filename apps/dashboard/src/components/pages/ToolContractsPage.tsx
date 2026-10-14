@@ -69,46 +69,63 @@ export const ToolContractsPage: React.FC = () => {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 font-body">
+      {/* Stitch Giant Hero + Action Button */}
+      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b-[1.5px] border-[#1A1614]">
+        <div>
+          <h1 className="font-headline text-6xl sm:text-7xl lg:text-9xl tracking-tight leading-[0.88] uppercase text-[#1A1614] m-0 select-none">
+            DID THE TOOLS<br />CHANGE.
+          </h1>
+          <p className="mt-4 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold">
+            02 // CANONICAL HASH VERIFICATION & SCHEMA DRIFT ENCLAVE
+          </p>
+        </div>
+
+        <div className="shrink-0 pb-1">
+          <button
+            onClick={loadContracts}
+            disabled={loading}
+            className="px-8 py-4 bg-[#BF6B45] text-white font-mono font-bold text-xs uppercase tracking-wider border-[1.5px] border-[#1A1614] shadow-[4px_4px_0px_#1A1614] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#1A1614] hover:bg-[#1A1614] hover:text-[#fcf9f2] transition-all cursor-pointer flex items-center gap-2"
+            type="button"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>SCAN FOR DRIFT</span>
+          </button>
+        </div>
+      </section>
+
       {/* Simulation / Mock Banner */}
       <div
-        className={`rounded-xl p-3 px-4 flex items-center justify-between text-xs border ${
+        className={`p-4 border-[1.5px] border-[#1A1614] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-[4px_4px_0px_#1A1614] ${
           isFromMock
-            ? 'bg-indigo-950/30 border-indigo-800/40 text-indigo-300'
-            : 'bg-emerald-950/30 border-emerald-800/40 text-emerald-300'
+            ? 'bg-[#fcf9f2] text-[#1A1614]'
+            : 'bg-[#2F6B3F] text-white'
         }`}
       >
         <span>
-          <strong className="font-semibold">{isFromMock ? 'Demonstration Mode:' : 'Live Registry:'}</strong> MCP tool contracts supporting canonical ContractStatus values (`ACTIVE`, `DRIFTED`, `DEPRECATED`, `BLOCKED`, `PENDING_REVIEW`). Prepared for `GET /api/contracts` & `GET /api/contracts/:serverId/:toolName/drift`.
-          {apiError && <span className="ml-2 text-rose-300 font-mono">({apiError})</span>}
+          <strong className="font-bold uppercase tracking-wider">{isFromMock ? 'DEMONSTRATION REGISTRY:' : 'LIVE CONTRACT REGISTRY:'}</strong> Enforcing 5 canonical contract statuses (`ACTIVE`, `DRIFTED`, `DEPRECATED`, `BLOCKED`, `PENDING_REVIEW`) over <code>GET /api/contracts</code>.
+          {apiError && <span className="ml-2 text-[#B3261E] font-bold">({apiError})</span>}
         </span>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] bg-slate-900/60 px-2 py-0.5 rounded border border-slate-700/50">
+          <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
             {isFromMock ? 'MOCK REGISTRY' : 'LIVE REGISTRY'}
           </span>
-          <button
-            onClick={loadContracts}
-            className="p-1 hover:bg-slate-800/60 rounded text-slate-300 hover:text-white transition cursor-pointer"
-            title="Refresh contracts"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
-      {/* Top summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* Top summary stats in brutalist cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <StatCard
           title="ACTIVE"
           value={contracts.filter((c) => c.status === 'ACTIVE').length}
           subtitle="Enforced in sync"
-          icon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+          icon={<CheckCircle2 className="w-5 h-5 text-[#2F6B3F]" />}
         />
         <StatCard
           title="DRIFTED"
           value={contracts.filter((c) => c.status === 'DRIFTED').length}
           subtitle="Schema mutation"
-          icon={<AlertTriangle className="w-4 h-4 text-orange-400" />}
+          icon={<AlertTriangle className="w-5 h-5 text-[#BF6B45]" />}
           trend="Warning"
           trendPositive={false}
         />
@@ -116,7 +133,7 @@ export const ToolContractsPage: React.FC = () => {
           title="BLOCKED"
           value={contracts.filter((c) => c.status === 'BLOCKED').length}
           subtitle="Prohibited tool"
-          icon={<ShieldAlert className="w-4 h-4 text-rose-400" />}
+          icon={<ShieldAlert className="w-5 h-5 text-[#B3261E]" />}
           trend="Enforced"
           trendPositive={false}
         />
@@ -124,7 +141,7 @@ export const ToolContractsPage: React.FC = () => {
           title="PENDING_REVIEW"
           value={contracts.filter((c) => c.status === 'PENDING_REVIEW').length}
           subtitle="Awaiting review"
-          icon={<Clock className="w-4 h-4 text-purple-400" />}
+          icon={<Clock className="w-5 h-5 text-[#C99A1F]" />}
           trend="Queue"
           trendPositive={false}
         />
@@ -132,7 +149,7 @@ export const ToolContractsPage: React.FC = () => {
           title="DEPRECATED"
           value={contracts.filter((c) => c.status === 'DEPRECATED').length}
           subtitle="Phased out"
-          icon={<Layers className="w-4 h-4 text-slate-400" />}
+          icon={<Layers className="w-5 h-5 text-[#1A1614]" />}
           trend="Legacy"
           trendPositive={false}
         />

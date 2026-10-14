@@ -38,38 +38,63 @@ export const ReplayPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 font-body">
+      {/* Stitch Giant Hero + Action Button */}
+      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b-[1.5px] border-[#1A1614]">
+        <div>
+          <h1 className="font-headline text-6xl sm:text-7xl lg:text-9xl tracking-tight leading-[0.88] uppercase text-[#1A1614] m-0 select-none">
+            PROVE IT<br />HOLDS.
+          </h1>
+          <p className="mt-4 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold">
+            03 // ATTACK REPLAY HARNESS & REGRESSION SUITE
+          </p>
+        </div>
+
+        <div className="shrink-0 pb-1">
+          <button
+            onClick={handleRunAll}
+            disabled={isRunning}
+            className="w-full sm:w-auto px-8 py-4 bg-[#BF6B45] text-white font-mono text-sm font-bold uppercase tracking-wider border-[1.5px] border-[#1A1614] shadow-[4px_4px_0px_#1A1614] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#1A1614] hover:bg-[#1A1614] hover:text-[#fcf9f2] transition-all cursor-pointer flex items-center justify-center gap-2"
+            type="button"
+          >
+            <RotateCcw className={`w-4 h-4 ${isRunning ? 'animate-spin' : ''}`} />
+            <span>{isRunning ? 'EXECUTING TEST VECTORS...' : 'Run All Replay Tests'}</span>
+          </button>
+        </div>
+      </section>
+
       {/* Simulation / Mock Banner */}
       <div
-        className={`rounded-xl p-3 px-4 flex items-center justify-between text-xs border ${
+        className={`p-4 border-[1.5px] border-[#1A1614] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-[4px_4px_0px_#1A1614] ${
           isFromMock
-            ? 'bg-indigo-950/30 border-indigo-800/40 text-indigo-300'
-            : 'bg-emerald-950/30 border-emerald-800/40 text-emerald-300'
+            ? 'bg-[#fcf9f2] text-[#1A1614]'
+            : 'bg-[#2F6B3F] text-white'
         }`}
       >
         <span>
-          <strong className="font-semibold">{isFromMock ? 'Demonstration Mode:' : 'Live Replay:'}</strong> Test vectors verifying deterministic gateway policy enforcement. Prepared for `GET /api/replay/runs` and `POST /api/replay/run`.
+          <strong className="font-bold uppercase tracking-wider">{isFromMock ? 'DEMONSTRATION HARNESS:' : 'LIVE REPLAY RUNNER:'}</strong> Pre-recorded security attack cases executed against deterministic gateway policies via <code>POST /api/replay/run</code>.
         </span>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] bg-slate-900/60 px-2 py-0.5 rounded border border-slate-700/50">
+          <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
             {isFromMock ? 'SIMULATED HARNESS' : 'LIVE RUNNER'}
           </span>
           <button
             onClick={loadReplayData}
-            className="p-1 hover:bg-slate-800/60 rounded text-slate-400 hover:text-slate-200 transition"
+            className="p-1.5 bg-[#f4f1ea] text-[#1A1614] hover:bg-[#1A1614] hover:text-white border border-[#1A1614] transition-colors cursor-pointer"
+            title="Reload replay data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Top summary stats */}
+      {/* Top summary stats in brutalist cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Regression Cases"
           value={summary?.totalCases ?? 0}
           subtitle="Pre-recorded attack suite"
-          icon={<PlaySquare className="w-4 h-4 text-indigo-400" />}
+          icon={<PlaySquare className="w-5 h-5 text-[#BF6B45]" />}
         />
         <StatCard
           title="Regression Pass Rate"

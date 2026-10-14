@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { MOCK_DECISION_EVIDENCE } from '../../data/mockData'
 import { Badge } from '../common/CommonUI'
 import {
-  FileCheck2,
   ShieldCheck,
   ShieldAlert,
   Copy,
@@ -71,75 +70,85 @@ export const DecisionEvidencePage: React.FC<{
   }
 
   return (
-    <div className="space-y-6">
-      {/* Simulation / Mock Banner */}
-      <div className="bg-indigo-950/30 border border-indigo-800/40 rounded-xl p-3 px-4 flex items-center justify-between text-xs text-indigo-300">
-        <div className="flex items-center gap-2">
-          {onBackToEvents && (
-            <button
-              onClick={onBackToEvents}
-              className="p-1 hover:bg-indigo-900/60 rounded text-indigo-300 hover:text-white transition cursor-pointer flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Events</span>
-            </button>
-          )}
-          <span>
-            <strong className="font-semibold text-indigo-200">Decision Evidence Inspector:</strong> Auditable decision evidence linked directly to SQLite audit records and deterministic policy checks.
-          </span>
-        </div>
-        <span className="font-mono text-[10px] bg-indigo-900/50 px-2 py-0.5 rounded border border-indigo-700/50">
-          AUDIT ENGINE
-        </span>
-      </div>
-
-      {/* Top Banner */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 font-body">
+      {/* Stitch Giant Hero Headline */}
+      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b-[1.5px] border-[#1A1614]">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              <FileCheck2 className="w-4 h-4 text-indigo-400" />
-              Auditable Decision Evidence
-            </h2>
-            <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">
-              SQLite Backed
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-            Audit record details displaying deterministic policy evaluations, sanitized
-            payloads, and heuristic prompt injection signals.
+          <h1 className="font-headline text-6xl sm:text-7xl lg:text-9xl tracking-tight leading-[0.88] uppercase text-[#1A1614] m-0 select-none">
+            SHOW YOUR<br />WORK.
+          </h1>
+          <p className="mt-4 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold">
+            04 // AUDITABLE FORENSIC DECISION EVIDENCE & POLICY PROOFS
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {selectedEvidence && (
+        <div className="shrink-0 pb-1">
+          <button
+            onClick={() => handleCopy(JSON.stringify(activeEvidence, null, 2))}
+            className="px-8 py-4 bg-[#BF6B45] text-white font-mono font-bold text-xs uppercase tracking-wider border-[1.5px] border-[#1A1614] shadow-[4px_4px_0px_#1A1614] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#1A1614] hover:bg-[#1A1614] hover:text-[#fcf9f2] transition-all cursor-pointer flex items-center gap-2"
+            type="button"
+          >
+            {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+            <span>{copied ? 'COPIED TO CLIPBOARD' : 'EXPORT PROOF'}</span>
+          </button>
+        </div>
+      </section>
+
+      {/* Simulation / Mock Banner */}
+      <div className="bg-[#fcf9f2] border-[1.5px] border-[#1A1614] p-4 flex items-center justify-between text-xs font-mono text-[#1A1614] shadow-[4px_4px_0px_#1A1614]">
+        <div className="flex items-center gap-3">
+          {onBackToEvents && (
             <button
-              onClick={() => setActiveId(selectedEvidence.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition cursor-pointer border ${
-                activeEvidence.eventId === selectedEvidence.id
-                  ? 'bg-indigo-600 text-white font-medium border-indigo-500 shadow-sm'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-              }`}
+              onClick={onBackToEvents}
+              className="px-3 py-1 bg-[#1A1614] text-[#fcf9f2] hover:bg-[#BF6B45] transition-colors cursor-pointer flex items-center gap-1 font-bold uppercase text-[11px]"
             >
-              Inspected Event: {selectedEvidence.id} ({selectedEvidence.action})
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Events</span>
             </button>
           )}
+          <span>
+            <strong className="font-bold uppercase tracking-wider">DECISION EVIDENCE INSPECTOR:</strong> Auditable decision evidence linked directly to SQLite audit records and deterministic policy checks.
+          </span>
+        </div>
+        <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
+          SQLITE AUDIT
+        </span>
+      </div>
 
-          {MOCK_DECISION_EVIDENCE.map((item) => (
+      {/* Stitch Incident Selector (Brutalist Buttons) */}
+      <section className="flex flex-wrap items-center gap-2.5">
+        {selectedEvidence && (
+          <button
+            onClick={() => setActiveId(selectedEvidence.id)}
+            className={`px-4 py-2 border-[1.5px] border-[#1A1614] font-mono text-xs uppercase font-bold tracking-wider transition-all cursor-pointer ${
+              activeEvidence.eventId === selectedEvidence.id
+                ? 'bg-[#1A1614] text-[#fcf9f2] shadow-[3px_3px_0px_#BF6B45]'
+                : 'bg-[#fcf9f2] text-[#1A1614] hover:bg-[#1A1614] hover:text-[#fcf9f2]'
+            }`}
+            type="button"
+          >
+            LIVE {selectedEvidence.id} ({selectedEvidence.action})
+          </button>
+        )}
+
+        {MOCK_DECISION_EVIDENCE.map((item) => {
+          const isActive = activeEvidence.id === item.id || activeEvidence.eventId === item.eventId
+          return (
             <button
               key={item.id}
               onClick={() => setActiveId(item.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition cursor-pointer border ${
-                activeEvidence.id === item.id || activeEvidence.eventId === item.eventId
-                  ? 'bg-indigo-600 text-white font-medium border-indigo-500 shadow-sm'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              className={`px-4 py-2 border-[1.5px] border-[#1A1614] font-mono text-xs uppercase font-bold tracking-wider transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-[#1A1614] text-[#fcf9f2] shadow-[3px_3px_0px_#BF6B45]'
+                  : 'bg-[#fcf9f2] text-[#1A1614] hover:bg-[#1A1614] hover:text-[#fcf9f2]'
               }`}
+              type="button"
             >
               {item.eventId} ({item.finalAction})
             </button>
-          ))}
-        </div>
-      </div>
+          )
+        })}
+      </section>
 
       {/* Main Evidence Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
