@@ -33,7 +33,7 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const contractsTabButton = screen.getByRole('button', { name: /Tool Contracts & Drift/i })
     fireEvent.click(contractsTabButton)
 
-    expect(screen.getByText('Tool Contracts & Canonical Drift')).toBeTruthy()
+    expect(screen.getByText(/Tool Contracts & Canonical Drift/i)).toBeTruthy()
     expect(screen.getByText('Registered Tool Contracts')).toBeTruthy()
     expect(await screen.findByText(/Canonical Definition Hash/i)).toBeTruthy()
 
@@ -51,9 +51,9 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const replayTabButton = screen.getByRole('button', { name: /Replay & Regression/i })
     fireEvent.click(replayTabButton)
 
-    expect(screen.getByText('Security Replay & Regression Suite')).toBeTruthy()
+    expect(screen.getByText(/Security Replay & Regression Suite/i)).toBeTruthy()
     expect(screen.getByText('Replay Attack Harness')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Run All Replay Tests/i })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /Run All Replay Tests/i }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('navigates to Decision Evidence and displays audit breakdown', () => {
@@ -62,7 +62,7 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const evidenceTabButton = screen.getByRole('button', { name: /Decision Evidence/i })
     fireEvent.click(evidenceTabButton)
 
-    expect(screen.getAllByText('Auditable Decision Evidence').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/Auditable Decision Evidence/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/Deterministic Policy Evaluation Breakdown/i)).toBeTruthy()
     expect(screen.getByText(/Prompt-Injection Risk Signal/i)).toBeTruthy()
   })

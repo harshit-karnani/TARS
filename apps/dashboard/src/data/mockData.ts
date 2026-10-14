@@ -6,13 +6,13 @@ import type {
   DecisionEvidenceItem,
 } from '../types'
 
-// Mock demonstration events adhering to AuditEvent with ALLOW, BLOCK, and REQUIRE_APPROVAL
+// Mock demonstration events adhering to AuditEvent with ALLOW, BLOCK, and REQUIRE_APPROVAL (streamlined)
 export const MOCK_SECURITY_EVENTS: AuditEvent[] = [
   {
     id: 'mock-evt-1092',
     requestId: 'req-001',
     timestamp: '2026-10-14 11:15:22',
-    clientIdentity: 'mcp-agent-orchestrator-1',
+    clientIdentity: 'claude-desktop',
     tool: 'read_file_content',
     serverId: 'local-fs-mcp',
     action: 'BLOCK',
@@ -35,7 +35,7 @@ export const MOCK_SECURITY_EVENTS: AuditEvent[] = [
     id: 'mock-evt-1091',
     requestId: 'req-002',
     timestamp: '2026-10-14 11:14:05',
-    clientIdentity: 'coding-assistant-prod',
+    clientIdentity: 'coding-assistant',
     tool: 'execute_sql_query',
     serverId: 'postgres-mcp-upstream',
     action: 'REQUIRE_APPROVAL',
@@ -52,14 +52,14 @@ export const MOCK_SECURITY_EVENTS: AuditEvent[] = [
       driftDetected: true,
       riskScore: 68,
       evaluatedChecks: ['Schema Validation: PASS', 'Privilege Scope: APPROVAL_REQUIRED'],
-      notes: 'Database modification or sensitive query requires human-in-the-loop signoff',
+      notes: 'Database modification requires human-in-the-loop signoff',
     },
   },
   {
     id: 'mock-evt-1090',
     requestId: 'req-003',
     timestamp: '2026-10-14 11:12:49',
-    clientIdentity: 'claude-desktop-client',
+    clientIdentity: 'cursor-ide',
     tool: 'list_directory_contents',
     serverId: 'local-fs-mcp',
     action: 'ALLOW',
@@ -75,46 +75,7 @@ export const MOCK_SECURITY_EVENTS: AuditEvent[] = [
       driftDetected: false,
       riskScore: 12,
       evaluatedChecks: ['Explicit allowlist match: PASS', 'Canonical contract match: PASS'],
-      notes: 'Validated against explicit workspace allowlist and canonical contract',
-    },
-  },
-  {
-    id: 'mock-evt-1089',
-    requestId: 'req-004',
-    timestamp: '2026-10-14 11:10:11',
-    clientIdentity: 'external-integration-bot',
-    tool: 'send_webhook_notification',
-    serverId: 'notification-gateway',
-    action: 'BLOCK',
-    reasonCode: 'UNAUTHORIZED_CLIENT',
-    executionStatus: 'BLOCKED',
-    policyVersion: '1.0.0',
-    contractVersion: '1.0.0',
-    latencyMs: 5,
-    decisionEvidence: {
-      matchedRuleId: 'rule-dest-block',
-      matchedRuleName: 'UNAUTHORIZED_DESTINATION_BLOCK',
-      riskScore: 82,
-      evaluatedChecks: ['Firewall allowlist: BLOCKED'],
-      notes: 'Destination URL not permitted under strict firewall allowlist',
-    },
-  },
-  {
-    id: 'mock-evt-1088',
-    requestId: 'req-005',
-    timestamp: '2026-10-14 11:08:33',
-    clientIdentity: 'dev-subagent-worker',
-    tool: 'query_vector_memory',
-    serverId: 'vector-mcp-upstream',
-    action: 'ALLOW',
-    reasonCode: 'POLICY_ALLOW',
-    executionStatus: 'SUCCESS',
-    policyVersion: '1.0.0',
-    latencyMs: 15,
-    decisionEvidence: {
-      riskScore: 5,
-      evaluatedChecks: ['Authorized bounds lookup: PASS'],
-      notes: 'Routine lookup within authorized bounds',
+      notes: 'Validated against explicit workspace allowlist',
     },
   },
 ]
@@ -216,20 +177,20 @@ export const MOCK_DRIFT_RESULTS: Record<string, ContractDriftResult> = {
   },
 }
 
-// Mock ReplayRunSummary matching @tars/shared-types ReplayRunSummary
+// Mock ReplayRunSummary matching @tars/shared-types ReplayRunSummary (streamlined)
 export const MOCK_REPLAY_SUMMARY: ReplayRunSummary = {
   runId: 'run-batch-101',
   timestamp: '2026-10-14 11:15:00',
   policyVersion: '1.0.0',
-  totalCases: 4,
-  passedCases: 4,
+  totalCases: 3,
+  passedCases: 3,
   failedCases: 0,
   passRate: 1.0,
-  averageLatencyMs: 17.2,
+  averageLatencyMs: 14.8,
   results: [
     {
       runId: 'run-batch-101',
-      caseId: 'mock-tc-001',
+      caseId: 'tc-001',
       expectedAction: 'BLOCK',
       actualAction: 'BLOCK',
       passed: true,
@@ -240,41 +201,30 @@ export const MOCK_REPLAY_SUMMARY: ReplayRunSummary = {
     },
     {
       runId: 'run-batch-101',
-      caseId: 'mock-tc-002',
+      caseId: 'tc-002',
       expectedAction: 'REQUIRE_APPROVAL',
       actualAction: 'REQUIRE_APPROVAL',
       passed: true,
-      latencyMs: 28,
+      latencyMs: 22,
       policyVersion: '1.0.0',
       timestamp: '12 mins ago',
       reasonCode: 'APPROVAL_REQUIRED',
     },
     {
       runId: 'run-batch-101',
-      caseId: 'mock-tc-003',
-      expectedAction: 'BLOCK',
-      actualAction: 'BLOCK',
-      passed: true,
-      latencyMs: 19,
-      policyVersion: '1.0.0',
-      timestamp: '15 mins ago',
-      reasonCode: 'PROMPT_INJECTION_RISK',
-    },
-    {
-      runId: 'run-batch-101',
-      caseId: 'mock-tc-004',
-      expectedAction: 'BLOCK',
-      actualAction: 'BLOCK',
+      caseId: 'tc-003',
+      expectedAction: 'ALLOW',
+      actualAction: 'ALLOW',
       passed: true,
       latencyMs: 8,
       policyVersion: '1.0.0',
-      timestamp: '25 mins ago',
-      reasonCode: 'UNKNOWN_TOOL',
+      timestamp: '15 mins ago',
+      reasonCode: 'POLICY_ALLOW',
     },
   ],
 }
 
-// Mock Decision Evidence items
+// Mock Decision Evidence items (streamlined)
 export const MOCK_DECISION_EVIDENCE: DecisionEvidenceItem[] = [
   {
     id: 'mock-evi-9001',
@@ -282,7 +232,7 @@ export const MOCK_DECISION_EVIDENCE: DecisionEvidenceItem[] = [
     timestamp: '2026-10-14 11:15:22',
     toolName: 'read_file_content',
     serverId: 'local-fs-mcp',
-    clientId: 'mcp-agent-orchestrator-1',
+    clientId: 'claude-desktop',
     finalAction: 'BLOCK',
     policyEvaluations: [
       {
@@ -294,11 +244,6 @@ export const MOCK_DECISION_EVIDENCE: DecisionEvidenceItem[] = [
         policyName: 'Directory Traversal & Path Confinement',
         passed: false,
         description: 'Path violates confinement root: relative dots navigate out of approved workspace.',
-      },
-      {
-        policyName: 'Client Authorization Scope',
-        passed: true,
-        description: 'Client is authorized to call read_file_content under standard scope.',
       },
     ],
     promptInjectionSignal: {
@@ -315,7 +260,7 @@ export const MOCK_DECISION_EVIDENCE: DecisionEvidenceItem[] = [
     timestamp: '2026-10-14 11:14:05',
     toolName: 'execute_sql_query',
     serverId: 'postgres-mcp-upstream',
-    clientId: 'coding-assistant-prod',
+    clientId: 'coding-assistant',
     finalAction: 'REQUIRE_APPROVAL',
     policyEvaluations: [
       {
@@ -337,33 +282,5 @@ export const MOCK_DECISION_EVIDENCE: DecisionEvidenceItem[] = [
     rawRequestSummary: '{"query": "UPDATE system_settings SET maintenance_mode = true"}',
     redactedPayloadPreview: '{"status": "APPROVAL_REQUIRED", "queueId": "h-app-9912"}',
     auditRecordReference: 'SQLite audit record #1091 (Illustrative entry)',
-  },
-  {
-    id: 'mock-evi-9002',
-    eventId: 'mock-evt-1090',
-    timestamp: '2026-10-14 11:12:49',
-    toolName: 'list_directory_contents',
-    serverId: 'local-fs-mcp',
-    clientId: 'claude-desktop-client',
-    finalAction: 'ALLOW',
-    policyEvaluations: [
-      {
-        policyName: 'Canonical Schema Validation',
-        passed: true,
-        description: 'Input arguments match registered schema types.',
-      },
-      {
-        policyName: 'Workspace Confinement',
-        passed: true,
-        description: 'Target path within approved working directory.',
-      },
-    ],
-    promptInjectionSignal: {
-      detected: false,
-      confidence: 0.02,
-      note: 'Clean signal.',
-    },
-    rawRequestSummary: '{"path": "./src"}',
-    auditRecordReference: 'SQLite audit record #1090 (Illustrative entry)',
   },
 ]

@@ -76,23 +76,25 @@ export class ReplayAdapter {
       },
     ];
 
+    if (!policyEngine) {
+      throw new Error('PolicyEngine dependency is required to execute replay test suite');
+    }
+
     const results: ReplayResult[] = testCases.map((tc) => {
       const startTime = performance.now();
-      let actualAction: 'ALLOW' | 'BLOCK' | 'REQUIRE_APPROVAL' = 'BLOCK';
-      let reasonCode = 'UNKNOWN';
-      if (policyEngine) {
-        const decision = policyEngine.evaluate({
-          requestId: `req-${tc.caseId}`,
-          toolName: tc.toolName,
-          serverId: tc.serverId,
-          arguments: tc.arguments,
-          timestamp: new Date().toISOString(),
-        });
-        actualAction = decision.action;
-        reasonCode = decision.reasonCode;
-      }
+      const decision = policyEngine.evaluate({
+        requestId: `req-${tc.caseId}`,
+        toolName: tc.toolName,
+        serverId: tc.serverId,
+        arguments: tc.arguments,
+        timestamp: new Date().toISOString(),
+      });
+      const actualAction = decision.action;
+      const reasonCode = decision.reasonCode;
       const latencyMs = Math.round((performance.now() - startTime) * 100) / 100;
-      const passed = actualAction === tc.expectedAction;
+      const actionPassed = actualAction === tc.expectedAction;
+      const reasonPassed = !tc.expectedReasonCode || reasonCode === tc.expectedReasonCode;
+      const passed = actionPassed && reasonPassed;
 
       return {
         runId,
