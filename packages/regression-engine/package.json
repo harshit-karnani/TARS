@@ -1,0 +1,14 @@
+{
+  "name": "@tars/regression-engine",
+  "version": "0.1.0",
+  "description": "TARS Regression Engine - Security test case replay and regression metrics",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "keywords": ["mcp", "security", "replay", "regression"],
+  "author": "TARS Team",
+  "license": "MIT"
+}
