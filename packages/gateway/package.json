@@ -15,7 +15,9 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start": "node dist/cli.js",
+    "demo": "node dist/demo.js"
   },
   "dependencies": {
     "@tars/shared-types": "*",

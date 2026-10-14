@@ -1,4 +1,18 @@
 /**
+ * JSON Schema definition for tool input arguments.
+ */
+export type ToolInputSchema = Record<string, unknown>;
+
+/**
+ * Standard MCP tool definition as advertised by an upstream server.
+ */
+export interface ToolDefinition {
+  name: string;
+  description?: string;
+  inputSchema: ToolInputSchema;
+}
+
+/**
  * ContractStatus indicates the current lifecycle or integrity state of a ToolContract.
  */
 export type ContractStatus =
@@ -35,7 +49,7 @@ export interface ToolContract {
   description?: string;
 
   /** JSON Schema of the expected input parameters */
-  inputSchema: Record<string, unknown>;
+  inputSchema: ToolInputSchema;
 
   /** Canonical hash (e.g. SHA-256 of normalized schema/tool definition) */
   definitionHash: string;
@@ -92,6 +106,23 @@ export interface ContractQueryFilter {
 }
 
 /**
+ * Backward-compatibility alias for ContractQueryFilter.
+ */
+export type ContractFilter = ContractQueryFilter;
+
+/**
+ * Candidate tool definition input for hash computation or drift checking.
+ */
+export type ToolDefinitionCandidate =
+  | ToolDefinition
+  | {
+      name?: string;
+      toolName?: string;
+      description?: string;
+      inputSchema: ToolInputSchema;
+    };
+
+/**
  * IContractRegistry defines the contract management interface coordinated with Person 2
  * for contract storage, retrieval, hashing, and drift verification.
  */
@@ -112,16 +143,9 @@ export interface IContractRegistry {
   checkDrift(
     serverId: string,
     toolName: string,
-    advertisedDefinition: {
-      description?: string;
-      inputSchema: Record<string, unknown>;
-    }
+    advertisedDefinition: ToolDefinition | { description?: string; inputSchema: ToolInputSchema }
   ): Promise<ContractDriftResult>;
 
   /** Calculate canonical SHA-256 hash of a normalized tool definition */
-  computeDefinitionHash(definition: {
-    toolName: string;
-    description?: string;
-    inputSchema: Record<string, unknown>;
-  }): string;
+  computeDefinitionHash(definition: ToolDefinitionCandidate): string;
 }

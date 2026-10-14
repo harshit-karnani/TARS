@@ -8,6 +8,10 @@ import {
   SSE_EVENTS_STREAM_PATH,
   type SecurityAction,
   type ToolContract,
+  type ToolInputSchema,
+  type ToolDefinition,
+  type ContractFilter,
+  type ContractQueryFilter,
   type AuditEvent,
   type ReplayResult,
   type ContractDriftResult,
@@ -187,5 +191,31 @@ describe('Shared Types - Contract & Security Invariants', () => {
     const drift = await registry.checkDrift('srv', 'tool');
     expect(drift.hasDrift).toBe(false);
     expect(registry.computeDefinitionHash({ toolName: 't', inputSchema: {} })).toBe('mock-hash');
+  });
+
+  it('validates ToolDefinition, ToolInputSchema, and ContractFilter alias', () => {
+    const inputSchema: ToolInputSchema = {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+      },
+      required: ['query'],
+    };
+
+    const toolDef: ToolDefinition = {
+      name: 'search_database',
+      description: 'Searches database for entries',
+      inputSchema,
+    };
+
+    expect(toolDef.name).toBe('search_database');
+    expect(toolDef.inputSchema.type).toBe('object');
+
+    const filter: ContractFilter = {
+      serverId: 'srv-1',
+      status: 'ACTIVE',
+    };
+    const canonicalFilter: ContractQueryFilter = filter;
+    expect(canonicalFilter.status).toBe('ACTIVE');
   });
 });
