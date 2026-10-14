@@ -1,0 +1,26 @@
+{
+  "name": "@tars/gateway",
+  "version": "0.1.0",
+  "description": "TARS Runtime Security Gateway for Model Context Protocol (MCP)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/cli.js",
+    "demo": "node dist/demo.js"
+  },
+  "dependencies": {
+    "@tars/shared-types": "*",
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}

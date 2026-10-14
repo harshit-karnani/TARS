@@ -1,0 +1,14 @@
+{
+  "name": "@tars/tool-contracts",
+  "version": "0.1.0",
+  "description": "TARS Tool Contract Firewall - Contract model, canonical hashing, and registry",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "keywords": ["mcp", "security", "contracts", "firewall"],
+  "author": "TARS Team",
+  "license": "MIT"
+}
