@@ -4,6 +4,8 @@ import type {
   PolicyDecision,
   ToolCallResponse,
   AuditEvent,
+  DecisionEvidence,
+  MlShadowPrediction,
 } from '@tars/shared-types';
 import { resolveGatewayConfig } from './config.js';
 import { PolicyEngine } from './policy/policy-engine.js';
@@ -14,6 +16,8 @@ import { EventBroadcaster } from './api/event-broadcaster.js';
 import { GatewayApiServer } from './api/gateway-api-server.js';
 import { ContractRegistryAdapter } from './adapters/contract-registry-adapter.js';
 import { ReplayAdapter } from './adapters/replay-adapter.js';
+import { MlShadowClient, type IMlShadowClient } from './ml/ml-shadow-client.js';
+import { extractMlFeatures } from './ml/feature-extractor.js';
 
 export interface GatewayComponents {
   policyEngine?: PolicyEngine;
@@ -23,6 +27,7 @@ export interface GatewayComponents {
   contractRegistry?: ContractRegistryAdapter;
   replayAdapter?: ReplayAdapter;
   enableSimulationFallback?: boolean;
+  mlShadowClient?: IMlShadowClient;
 }
 
 export class TarsGateway {
@@ -33,6 +38,7 @@ export class TarsGateway {
   private broadcaster: EventBroadcaster;
   private contractRegistry: ContractRegistryAdapter;
   private replayAdapter: ReplayAdapter;
+  private mlShadowClient: IMlShadowClient | null = null;
   private apiServer: GatewayApiServer | null = null;
   private isRunning: boolean = false;
 
@@ -53,6 +59,14 @@ export class TarsGateway {
     this.broadcaster = components.broadcaster ?? new EventBroadcaster();
     this.contractRegistry = components.contractRegistry ?? new ContractRegistryAdapter();
     this.replayAdapter = components.replayAdapter ?? new ReplayAdapter();
+
+    if (components.mlShadowClient) {
+      this.mlShadowClient = components.mlShadowClient;
+    } else if (this.config.enableMlShadowScoring) {
+      this.mlShadowClient = new MlShadowClient({
+        endpoint: this.config.mlScoringEndpoint,
+      });
+    }
   }
 
   public async initialize(startApiServer: boolean = false): Promise<void> {
@@ -107,6 +121,10 @@ export class TarsGateway {
     return this.replayAdapter;
   }
 
+  public getMlShadowClient(): IMlShadowClient | null {
+    return this.mlShadowClient;
+  }
+
   public getApiServer(): GatewayApiServer | null {
     return this.apiServer;
   }
@@ -119,26 +137,66 @@ export class TarsGateway {
     };
   }
 
+  private async executeShadowScoring(request: ToolCallRequest): Promise<MlShadowPrediction | undefined> {
+    if (!this.mlShadowClient || !this.config.enableMlShadowScoring) {
+      return undefined;
+    }
+
+    try {
+      const matchedContract = this.policyEngine.getContract(request.toolName, request.serverId);
+      const features = extractMlFeatures(request, {
+        matchedContract,
+        allowedRoot: (this.policyEngine as any).options?.allowedRoot,
+      });
+      return await this.mlShadowClient.predict(features);
+    } catch (err: unknown) {
+      return {
+        predictedRisk: 'UNKNOWN',
+        model: 'risk_classifier',
+        mode: 'shadow',
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   /**
    * Backward-compatible helper method evaluating requests and creating an audit record.
    */
   public async interceptToolCall(request: ToolCallRequest): Promise<PolicyDecision> {
-    const decision = this.policyEngine.evaluate(request);
+    const effectiveArguments =
+      request.arguments && typeof request.arguments === 'object' && Object.keys(request.arguments).length > 0
+        ? request.arguments
+        : request.parameters && typeof request.parameters === 'object' && !Array.isArray(request.parameters)
+        ? request.parameters
+        : request.arguments || request.parameters || {};
+
+    const normalizedRequest: ToolCallRequest = {
+      ...request,
+      arguments: effectiveArguments,
+      parameters: effectiveArguments,
+    };
+
+    const decision = this.policyEngine.evaluate(normalizedRequest);
+    const mlShadow = await this.executeShadowScoring(normalizedRequest);
 
     const event: AuditEvent = {
       id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      requestId: request.requestId,
+      requestId: normalizedRequest.requestId,
       timestamp: new Date().toISOString(),
-      serverId: request.serverId,
-      tool: request.toolName,
+      serverId: normalizedRequest.serverId,
+      tool: normalizedRequest.toolName,
       action: decision.action,
       reasonCode: decision.reasonCode,
       executionStatus: decision.action === 'BLOCK' ? 'BLOCKED' : 'PENDING',
       policyVersion: decision.policyVersion,
       contractVersion: decision.contractVersion,
-      clientIdentity: request.clientIdentity,
+      clientIdentity: normalizedRequest.clientIdentity,
       parameters: decision.sanitizedArguments,
-      decisionEvidence: decision.evidence,
+      decisionEvidence: {
+        ...decision.evidence,
+        mlShadow,
+      },
     };
 
     await this.auditStorage.recordEvent(event);
@@ -157,7 +215,29 @@ export class TarsGateway {
    */
   public async handleToolCall(request: ToolCallRequest): Promise<ToolCallResponse> {
     const startTime = performance.now();
-    const decision = this.policyEngine.evaluate(request);
+
+    const effectiveArguments =
+      request.arguments && typeof request.arguments === 'object' && Object.keys(request.arguments).length > 0
+        ? request.arguments
+        : request.parameters && typeof request.parameters === 'object' && !Array.isArray(request.parameters)
+        ? request.parameters
+        : request.arguments || request.parameters || {};
+
+    const normalizedRequest: ToolCallRequest = {
+      ...request,
+      arguments: effectiveArguments,
+      parameters: effectiveArguments,
+    };
+
+    // 0. Deterministic policy evaluation always runs first
+    const decision = this.policyEngine.evaluate(normalizedRequest);
+
+    // Observational ML shadow risk scoring (never replaces or overrides deterministic decision)
+    const mlShadow = await this.executeShadowScoring(normalizedRequest);
+    const decisionEvidenceWithShadow: DecisionEvidence = {
+      ...decision.evidence,
+      mlShadow,
+    };
 
     // 1. Policy BLOCK — Upstream execution prevented
     if (decision.action === 'BLOCK') {
@@ -175,7 +255,7 @@ export class TarsGateway {
         contractVersion: decision.contractVersion,
         clientIdentity: request.clientIdentity,
         parameters: decision.sanitizedArguments,
-        decisionEvidence: decision.evidence,
+        decisionEvidence: decisionEvidenceWithShadow,
         latencyMs,
         errorMessage: `Blocked by policy: ${decision.reasonCode}`,
       };
@@ -208,7 +288,7 @@ export class TarsGateway {
         contractVersion: decision.contractVersion,
         clientIdentity: request.clientIdentity,
         parameters: decision.sanitizedArguments,
-        decisionEvidence: decision.evidence,
+        decisionEvidence: decisionEvidenceWithShadow,
         latencyMs,
       };
 
@@ -248,7 +328,7 @@ export class TarsGateway {
       parameters: decision.sanitizedArguments,
       redacted: response.redacted,
       latencyMs: totalLatencyMs,
-      decisionEvidence: decision.evidence,
+      decisionEvidence: decisionEvidenceWithShadow,
       errorMessage: response.error,
     };
 

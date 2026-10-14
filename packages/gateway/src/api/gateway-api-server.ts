@@ -248,8 +248,9 @@ export class GatewayApiServer {
 
       // 8. Intercept Tool Call (Direct API execution / Replay endpoint): POST /api/intercept
       if (pathname === '/api/intercept' && req.method === 'POST') {
-        const body = await this.readJsonBody<ToolCallRequest>(req);
-        if (!body || !body.toolName) {
+        const body = await this.readJsonBody<ToolCallRequest & { tool?: string; parameters?: Record<string, unknown> }>(req);
+        const toolName = body?.toolName || body?.tool;
+        if (!body || !toolName) {
           this.sendJson(res, 400, {
             success: false,
             error: { code: 'BAD_REQUEST', message: 'Field toolName is required' },
@@ -258,11 +259,19 @@ export class GatewayApiServer {
           return;
         }
 
+        const rawArgs =
+          body.arguments && typeof body.arguments === 'object' && !Array.isArray(body.arguments) && Object.keys(body.arguments).length > 0
+            ? body.arguments
+            : body.parameters && typeof body.parameters === 'object' && !Array.isArray(body.parameters)
+            ? body.parameters
+            : body.arguments || body.parameters || {};
+
         const request: ToolCallRequest = {
           requestId: body.requestId || `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          toolName: body.toolName,
+          toolName,
           serverId: body.serverId,
-          arguments: body.arguments || {},
+          arguments: rawArgs,
+          parameters: rawArgs,
           clientIdentity: body.clientIdentity,
           timestamp: body.timestamp || new Date().toISOString(),
         };

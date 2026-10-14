@@ -39,6 +39,12 @@ export interface GatewayConfig {
 
   /** Whether to allow tools that are not pre-registered in the contract registry */
   allowUnknownTools: boolean;
+
+  /** Enable ML-based adaptive risk classification in shadow mode */
+  enableMlShadowScoring?: boolean;
+
+  /** Local endpoint URL for ML risk prediction service (e.g. http://127.0.0.1:8000) */
+  mlScoringEndpoint?: string;
 }
 
 /**
@@ -49,6 +55,7 @@ export interface ToolCallRequest {
   toolName: string;
   serverId?: string;
   arguments: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
   clientIdentity?: string;
   timestamp: string;
 }

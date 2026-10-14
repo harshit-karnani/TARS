@@ -9,6 +9,8 @@ export async function main() {
   const upstreamArgs = process.env.UPSTREAM_ARGS ? process.env.UPSTREAM_ARGS.split(' ') : undefined;
   const enableRedaction = process.env.ENABLE_REDACTION !== 'false';
   const allowUnknownTools = process.env.ALLOW_UNKNOWN_TOOLS === 'true';
+  const enableMlShadowScoring = process.env.ENABLE_ML_SHADOW_SCORING === 'true';
+  const mlScoringEndpoint = process.env.ML_SCORING_ENDPOINT || 'http://127.0.0.1:8000';
   const stdioMode = process.env.MCP_STDIO_MODE === 'true';
 
   const gateway = new TarsGateway({
@@ -20,6 +22,8 @@ export async function main() {
     upstreamArgs,
     enableRedaction,
     allowUnknownTools,
+    enableMlShadowScoring,
+    mlScoringEndpoint,
   });
 
   if (stdioMode) {
@@ -48,6 +52,7 @@ export async function main() {
   console.log(`   - Bind Address:       http://${host}:${port}`);
   console.log(`   - SQLite Audit DB:    ${dbPath}`);
   console.log(`   - Secret Redaction:   ${enableRedaction ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`   - ML Shadow Scorer:   ${enableMlShadowScoring ? `ENABLED (${mlScoringEndpoint})` : 'DISABLED (Shadow mode off)'}`);
   console.log(`   - Upstream Command:   ${upstreamCommand ? `${upstreamCommand} ${(upstreamArgs || []).join(' ')}` : 'None (Unconfigured - External tool forwarding inactive)'}`);
   console.log('----------------------------------------------------------------');
 

@@ -126,4 +126,33 @@ describe('Phase 4 — Gateway API Server & SSE Endpoints', () => {
     // Verify policy engine reflected update
     expect(gateway.getPolicyEngine().getPolicyVersion()).toBe('1.1.0');
   });
+
+  it('POST /api/intercept maps "parameters" field correctly without losing required contract schema arguments', async () => {
+    const interceptRes = await fetch(`http://127.0.0.1:${testPort}/api/intercept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: 'ml-shadow-test-002',
+        serverId: 'system-fs-server',
+        toolName: 'read_file',
+        parameters: {
+          path: 'safe_document.txt',
+        },
+      }),
+    });
+    expect(interceptRes.status).toBe(200);
+    const interceptBody = (await interceptRes.json()) as any;
+    expect(interceptBody.success).toBe(true);
+    expect(interceptBody.data.action).toBe('ALLOW');
+    expect(interceptBody.data.error).not.toContain('SCHEMA_MISMATCH');
+
+    // Verify audit event accurately persisted parameters and not empty object
+    const eventsRes = await fetch(`http://127.0.0.1:${testPort}/api/events?limit=5`);
+    const eventsBody = (await eventsRes.json()) as any;
+    const matched = eventsBody.data.items.find((e: any) => e.requestId === 'ml-shadow-test-002');
+    expect(matched).toBeDefined();
+    expect(matched.action).toBe('ALLOW');
+    expect(matched.parameters).toEqual({ path: 'safe_document.txt' });
+    expect(matched.decisionEvidence?.notes).not.toContain("Missing required parameter: 'path'");
+  });
 });

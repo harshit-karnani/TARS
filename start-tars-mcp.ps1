@@ -1,0 +1,7 @@
+$env:MCP_STDIO_MODE = "true"
+$env:UPSTREAM_COMMAND = "cmd"
+$env:UPSTREAM_ARGS = "/c npx -y @modelcontextprotocol/server-filesystem D:/tars/Tars/mcp-test-data"
+$env:ENABLE_REDACTION = "true"
+$env:ALLOW_UNKNOWN_TOOLS = "false"
+Set-Location "D:\tars\Tars"
+node "D:\tars\Tars\packages\gateway\dist\cli.js"

@@ -34,3 +34,20 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Python ML policy artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local databases and secrets
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+!.env.example
+
+# Local model and editor files
+*.local

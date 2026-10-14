@@ -8,6 +8,8 @@ export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   policyVersion: '1.0.0',
   enableRedaction: true,
   allowUnknownTools: false,
+  enableMlShadowScoring: false,
+  mlScoringEndpoint: 'http://127.0.0.1:8000',
 };
 
 export function resolveGatewayConfig(overrides: Partial<GatewayConfig> = {}): GatewayConfig {

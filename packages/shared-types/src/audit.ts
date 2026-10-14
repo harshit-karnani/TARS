@@ -18,6 +18,19 @@ export const AUDIT_EXECUTION_STATUSES: readonly AuditExecutionStatus[] = [
   'BLOCKED',
 ] as const;
 
+export type MlRiskLabel = 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+
+export interface MlShadowPrediction {
+  predictedRisk: MlRiskLabel | string;
+  confidence?: number;
+  classProbabilities?: Record<string, number>;
+  model: string;
+  mode: 'shadow';
+  success: boolean;
+  latencyMs?: number;
+  error?: string;
+}
+
 /**
  * Detailed evidence explaining why a security action was taken.
  */
@@ -30,6 +43,7 @@ export interface DecisionEvidence {
   riskScore?: number;
   evaluatedChecks: string[];
   notes?: string;
+  mlShadow?: MlShadowPrediction;
 }
 
 /**
