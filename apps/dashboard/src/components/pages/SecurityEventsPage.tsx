@@ -14,15 +14,13 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import type { AuditEvent, SecurityAction } from '../../types'
-import { MOCK_SECURITY_EVENTS } from '../../data/mockData'
 
 export const SecurityEventsPage: React.FC<{
   onInspectEvidence?: (event: AuditEvent) => void
 }> = ({ onInspectEvidence }) => {
-  const [events, setEvents] = useState<AuditEvent[]>(MOCK_SECURITY_EVENTS)
+  const [events, setEvents] = useState<AuditEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
-  const [isFromMock, setIsFromMock] = useState(true)
   const [sseState, setSseState] = useState<{
     connected: boolean
     connecting: boolean
@@ -46,14 +44,19 @@ export const SecurityEventsPage: React.FC<{
 
   const loadEvents = async () => {
     setLoading(true)
-    const result = await apiClient.getEvents({
-      action: filterAction,
-      tool: filterTool !== 'ALL' ? filterTool : undefined,
-    })
-    setEvents(result.data)
-    setIsFromMock(result.isFromMock)
-    setApiError(result.error || null)
-    setLoading(false)
+    try {
+      const result = await apiClient.getEvents({
+        action: filterAction,
+        tool: filterTool !== 'ALL' ? filterTool : undefined,
+      })
+      setEvents(result.data || [])
+      setApiError(result.error || null)
+    } catch (err) {
+      setEvents([])
+      setApiError(err instanceof Error ? err.message : 'Failed to query gateway events')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -120,10 +123,10 @@ export const SecurityEventsPage: React.FC<{
       {/* Gateway Connection Banner (Brutalist Notice) */}
       <div
         className={`p-4 border-[1.5px] border-[#1A1614] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-[4px_4px_0px_#1A1614] ${
-          sseState.connected && !isFromMock
+          sseState.connected
             ? 'bg-[#2F6B3F] text-white'
-            : isFromMock
-            ? 'bg-[#fcf9f2] text-[#1A1614]'
+            : apiError
+            ? 'bg-[#B3261E] text-white'
             : 'bg-[#C99A1F] text-[#1A1614]'
         }`}
       >
@@ -138,17 +141,21 @@ export const SecurityEventsPage: React.FC<{
             }`}
           />
           <div>
-            {sseState.connected && !isFromMock ? (
+            {sseState.connected ? (
               <span>
                 <strong className="font-bold uppercase tracking-wider">GATEWAY STREAM ACTIVE:</strong> Connected to SSE <code>/api/events/stream</code> at {apiClient.getBaseUrl()}
               </span>
-            ) : isFromMock ? (
+            ) : apiError ? (
               <span>
-                <strong className="font-bold uppercase tracking-wider">DEMONSTRATION RECORD:</strong> Displaying representative security event data ({apiError ? `Gateway offline: ${apiError}` : 'Awaiting live runtime'})
+                <strong className="font-bold uppercase tracking-wider">GATEWAY API ERROR:</strong> {apiError} (Ensure gateway is listening at {apiClient.getBaseUrl()})
+              </span>
+            ) : sseState.connecting ? (
+              <span>
+                <strong className="font-bold uppercase tracking-wider">CONNECTING TO GATEWAY:</strong> Establishing SSE stream at {apiClient.getBaseUrl()}...
               </span>
             ) : (
               <span>
-                <strong className="font-bold uppercase tracking-wider">GATEWAY RECONNECTING:</strong> {sseState.error || 'Connection dropped'} (retry in {sseState.retryIn || 3}s)
+                <strong className="font-bold uppercase tracking-wider">GATEWAY DISCONNECTED:</strong> {sseState.error || 'Connection dropped'} (retry in {sseState.retryIn || 3}s)
               </span>
             )}
           </div>
@@ -156,7 +163,7 @@ export const SecurityEventsPage: React.FC<{
 
         <div className="flex items-center gap-2 shrink-0">
           <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
-            {sseState.connected ? 'LIVE SSE' : isFromMock ? 'MOCK DATA' : 'OFFLINE'}
+            {sseState.connected ? 'LIVE SSE' : apiError ? 'API ERROR' : sseState.connecting ? 'CONNECTING' : 'OFFLINE'}
           </span>
           <button
             onClick={loadEvents}
@@ -198,7 +205,7 @@ export const SecurityEventsPage: React.FC<{
           value={sseState.connected ? 'Active' : sseState.connecting ? 'Connecting' : 'Standby'}
           subtitle="SSE /api/events/stream"
           icon={<Radio className={`w-5 h-5 ${sseState.connected ? 'text-[#2F6B3F] animate-pulse' : 'text-[#1A1614]'}`} />}
-          trend={sseState.connected ? 'Live Feed' : 'Mock Mode'}
+          trend={sseState.connected ? 'Live Feed' : 'Offline'}
           trendPositive={sseState.connected}
         />
       </div>
@@ -207,7 +214,7 @@ export const SecurityEventsPage: React.FC<{
       <div className="flex flex-wrap items-center gap-2.5 pt-2">
         {(['ALL', 'BLOCK', 'REQUIRE_APPROVAL', 'ALLOW'] as const).map((act) => {
           const isActive = filterAction === act
-          const label = act === 'ALL' ? 'ALL' : act === 'BLOCK' ? 'BLOCKED' : act === 'REQUIRE_APPROVAL' ? 'APPROVAL REQ.' : 'ALLOWED'
+          const label = act === 'ALL' ? 'ALL' : act === 'BLOCK' ? 'BLOCKED' : act === 'REQUIRE_APPROVAL' ? 'REQUIRE APPROVAL' : 'ALLOWED'
           return (
             <button
               key={act}
@@ -337,8 +344,8 @@ export const SecurityEventsPage: React.FC<{
         <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-slate-200">Security Event Timeline</h2>
-            <span className="text-[10px] text-indigo-400/80 font-mono bg-indigo-500/10 px-1.5 py-0.5 rounded">
-              {isFromMock ? 'Demo Dataset' : 'Live Gateway'}
+            <span className="text-[10px] text-emerald-400/80 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">
+              {sseState.connected ? 'Live Stream' : 'Gateway Storage'}
             </span>
           </div>
           <span className="text-xs text-slate-500 font-mono">
@@ -362,11 +369,27 @@ export const SecurityEventsPage: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50 text-slate-300">
-              {paginatedEvents.length === 0 ? (
+              {loading && events.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin text-[#BF6B45]" />
+                    Loading security events from gateway...
+                  </td>
+                </tr>
+              ) : apiError && events.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-rose-400">
+                    <AlertCircle className="w-6 h-6 mx-auto mb-2 text-rose-500" />
+                    Failed to query events from gateway: {apiError}
+                  </td>
+                </tr>
+              ) : paginatedEvents.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-500">
                     <AlertCircle className="w-6 h-6 mx-auto mb-2 text-slate-600" />
-                    No security events match the active filters.
+                    {events.length === 0
+                      ? 'No security events recorded yet in gateway audit storage. Inbound MCP tool calls intercepted by TARS will appear here in real time.'
+                      : 'No security events match the active filters.'}
                   </td>
                 </tr>
               ) : (

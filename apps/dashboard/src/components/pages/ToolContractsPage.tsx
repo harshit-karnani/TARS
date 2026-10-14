@@ -26,7 +26,6 @@ export const ToolContractsPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterServer, setFilterServer] = useState<string>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
-  const [isFromMock, setIsFromMock] = useState(true)
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [driftError, setDriftError] = useState<string | null>(null)
@@ -38,8 +37,7 @@ export const ToolContractsPage: React.FC = () => {
     try {
       const res = await apiClient.getContracts()
 
-      setContracts(res.data)
-      setIsFromMock(res.isFromMock)
+      setContracts(res.data || [])
       setApiError(res.error || null)
 
       if (res.data.length > 0) {
@@ -145,21 +143,19 @@ export const ToolContractsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Simulation / Mock Banner */}
+      {/* Live Contract Registry Banner */}
       <div
         className={`p-4 border-[1.5px] border-[#1A1614] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-[4px_4px_0px_#1A1614] ${
-          isFromMock
-            ? 'bg-[#fcf9f2] text-[#1A1614]'
-            : 'bg-[#2F6B3F] text-white'
+          apiError ? 'bg-[#B3261E] text-white' : 'bg-[#2F6B3F] text-white'
         }`}
       >
         <span>
-          <strong className="font-bold uppercase tracking-wider">{isFromMock ? 'DEMONSTRATION REGISTRY:' : 'LIVE CONTRACT REGISTRY:'}</strong> Enforcing 5 canonical contract statuses (`ACTIVE`, `DRIFTED`, `DEPRECATED`, `BLOCKED`, `PENDING_REVIEW`) over <code>GET /api/contracts</code>.
-          {apiError && <span className="ml-2 text-[#B3261E] font-bold">({apiError})</span>}
+          <strong className="font-bold uppercase tracking-wider">LIVE CONTRACT REGISTRY:</strong> Enforcing 5 canonical contract statuses (`ACTIVE`, `DRIFTED`, `DEPRECATED`, `BLOCKED`, `PENDING_REVIEW`) over <code>GET /api/contracts</code> with deterministic SHA-256 hash verification.
+          {apiError && <span className="ml-2 font-bold underline">({apiError})</span>}
         </span>
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
-            {isFromMock ? 'MOCK REGISTRY' : 'LIVE REGISTRY'}
+            {apiError ? 'API ERROR' : 'LIVE REGISTRY'}
           </span>
         </div>
       </div>
@@ -263,8 +259,8 @@ export const ToolContractsPage: React.FC = () => {
           <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-slate-200">Registered Tool Contracts</h2>
-              <span className="text-[10px] text-amber-400/80 font-mono bg-amber-500/10 px-1.5 py-0.5 rounded">
-                {isFromMock ? 'Mock Registry' : 'Live Gateway'}
+              <span className="text-[10px] text-emerald-400/80 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                Live Gateway Registry
               </span>
             </div>
             <span className="text-xs text-slate-500 font-mono">
@@ -273,9 +269,21 @@ export const ToolContractsPage: React.FC = () => {
           </div>
 
           <div className="divide-y divide-slate-800/60 max-h-[560px] overflow-y-auto">
-            {filteredContracts.length === 0 ? (
+            {loading && contracts.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin text-[#BF6B45]" />
+                Loading registered contracts from gateway...
+              </div>
+            ) : apiError && contracts.length === 0 ? (
+              <div className="p-8 text-center text-xs text-rose-400">
+                <AlertCircle className="w-5 h-5 mx-auto mb-2 text-rose-500" />
+                Failed to load contracts: {apiError}
+              </div>
+            ) : filteredContracts.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500">
-                No tool contracts registered or matching criteria.
+                {contracts.length === 0
+                  ? 'No tool contracts registered in the gateway registry.'
+                  : 'No tool contracts match the active filter criteria.'}
               </div>
             ) : (
               filteredContracts.map((contract) => {

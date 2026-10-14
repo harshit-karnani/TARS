@@ -29,7 +29,7 @@ describe('Phase 2 — Deterministic Policy Engine', () => {
     const request: ToolCallRequest = {
       requestId: 'req-unauthorized-client',
       toolName: 'read_file',
-      arguments: { filePath: 'test.txt' },
+      arguments: { path: 'test.txt' },
       clientIdentity: 'malicious-script-1',
       timestamp: new Date().toISOString(),
     };

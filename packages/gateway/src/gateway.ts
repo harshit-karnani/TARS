@@ -22,6 +22,7 @@ export interface GatewayComponents {
   broadcaster?: EventBroadcaster;
   contractRegistry?: ContractRegistryAdapter;
   replayAdapter?: ReplayAdapter;
+  enableSimulationFallback?: boolean;
 }
 
 export class TarsGateway {
@@ -44,7 +45,11 @@ export class TarsGateway {
     this.auditStorage =
       components.auditStorage ??
       new SqliteAuditStorage(this.config.dbPath || ':memory:');
-    this.forwarder = components.forwarder ?? new McpForwarder(this.config);
+    this.forwarder =
+      components.forwarder ??
+      new McpForwarder(this.config, {
+        enableSimulationFallback: components.enableSimulationFallback ?? false,
+      });
     this.broadcaster = components.broadcaster ?? new EventBroadcaster();
     this.contractRegistry = components.contractRegistry ?? new ContractRegistryAdapter();
     this.replayAdapter = components.replayAdapter ?? new ReplayAdapter();

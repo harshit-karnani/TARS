@@ -24,7 +24,7 @@ describe('SqliteAuditStorage', () => {
       reasonCode: 'POLICY_ALLOW',
       executionStatus: 'SUCCESS',
       policyVersion: '1.0.0',
-      parameters: { filePath: 'test.txt' },
+      parameters: { path: 'test.txt' },
       redacted: false,
       latencyMs: 15.2,
     };
@@ -57,6 +57,6 @@ describe('SqliteAuditStorage', () => {
     const byId = await storage.getEventById('evt-1');
     expect(byId).not.toBeNull();
     expect(byId?.tool).toBe('read_file');
-    expect(byId?.parameters).toEqual({ filePath: 'test.txt' });
+    expect(byId?.parameters).toEqual({ path: 'test.txt' });
   });
 });

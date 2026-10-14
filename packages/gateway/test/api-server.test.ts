@@ -36,7 +36,7 @@ describe('Phase 4 — Gateway API Server & SSE Endpoints', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         toolName: 'read_file',
-        arguments: { filePath: 'test_doc.txt' },
+        arguments: { path: 'test_doc.txt' },
       }),
     });
     expect(interceptRes.status).toBe(200);
@@ -78,13 +78,23 @@ describe('Phase 4 — Gateway API Server & SSE Endpoints', () => {
   });
 
   it('GET /api/replay/runs returns replay run benchmarks and test cases', async () => {
+    // 1. Execute live replay suite via POST /api/replay/run
+    const postRes = await fetch(`http://127.0.0.1:${testPort}/api/replay/run`, {
+      method: 'POST',
+    });
+    expect(postRes.status).toBe(200);
+    const postBody = (await postRes.json()) as any;
+    expect(postBody.success).toBe(true);
+    expect(postBody.data.totalCases).toBe(4);
+
+    // 2. Query recorded replay runs via GET /api/replay/runs
     const res = await fetch(`http://127.0.0.1:${testPort}/api/replay/runs`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.success).toBe(true);
     expect(Array.isArray(body.data)).toBe(true);
     expect(body.data.length).toBeGreaterThan(0);
-    expect(body.data[0].runId).toBe('baseline-security-regression-v1');
+    expect(body.data[0].runId).toMatch(/^live-replay-/);
     expect(body.data[0].passRate).toBe(1.0);
   });
 

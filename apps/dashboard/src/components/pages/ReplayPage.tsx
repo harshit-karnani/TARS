@@ -8,18 +8,26 @@ export const ReplayPage: React.FC = () => {
   const [summary, setSummary] = useState<ReplayRunSummary | null>(null)
   const [isRunning, setIsRunning] = useState(false)
   const [selectedResult, setSelectedResult] = useState<ReplayResult | null>(null)
-  const [isFromMock, setIsFromMock] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   const loadReplayData = async () => {
     setLoading(true)
-    const res = await apiClient.getReplayRuns()
-    setSummary(res.data)
-    setIsFromMock(res.isFromMock)
-    if (res.data?.results && res.data.results.length > 0) {
-      setSelectedResult(res.data.results[0])
+    try {
+      const res = await apiClient.getReplayRuns()
+      setSummary(res.data)
+      setApiError(res.error || null)
+      if (res.data?.results && res.data.results.length > 0) {
+        setSelectedResult(res.data.results[0])
+      } else {
+        setSelectedResult(null)
+      }
+    } catch (err) {
+      setSummary(null)
+      setApiError(err instanceof Error ? err.message : 'Failed to query replay runs')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -28,13 +36,22 @@ export const ReplayPage: React.FC = () => {
 
   const handleRunAll = async () => {
     setIsRunning(true)
-    const res = await apiClient.runReplaySuite()
-    setSummary(res.data)
-    setIsFromMock(res.isFromMock)
-    if (res.data?.results && res.data.results.length > 0) {
-      setSelectedResult(res.data.results[0])
+    setApiError(null)
+    try {
+      const res = await apiClient.runReplaySuite()
+      if (res.data) {
+        setSummary(res.data)
+        if (res.data.results && res.data.results.length > 0) {
+          setSelectedResult(res.data.results[0])
+        }
+      } else if (res.error) {
+        setApiError(res.error)
+      }
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Replay execution failed')
+    } finally {
+      setIsRunning(false)
     }
-    setIsRunning(false)
   }
 
   return (
@@ -63,25 +80,29 @@ export const ReplayPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Simulation / Mock Banner */}
+      {/* Live Replay Runner Banner */}
       <div
         className={`p-4 border-[1.5px] border-[#1A1614] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono shadow-[4px_4px_0px_#1A1614] ${
-          isFromMock
-            ? 'bg-[#fcf9f2] text-[#1A1614]'
-            : 'bg-[#2F6B3F] text-white'
+          apiError
+            ? 'bg-[#B3261E] text-white'
+            : summary
+            ? 'bg-[#2F6B3F] text-white'
+            : 'bg-[#fcf9f2] text-[#1A1614]'
         }`}
       >
         <span>
-          <strong className="font-bold uppercase tracking-wider">{isFromMock ? 'DEMONSTRATION HARNESS:' : 'LIVE REPLAY RUNNER:'}</strong> Pre-recorded security attack cases executed against deterministic gateway policies via <code>POST /api/replay/run</code>.
+          <strong className="font-bold uppercase tracking-wider">LIVE REPLAY RUNNER:</strong> Security attack test vectors executed directly against live gateway PolicyEngine via <code>POST /api/replay/run</code>.
+          {apiError && <span className="ml-2 font-bold underline">({apiError})</span>}
         </span>
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] bg-[#1A1614] text-white px-2 py-0.5 border border-[#1A1614] font-bold">
-            {isFromMock ? 'SIMULATED HARNESS' : 'LIVE RUNNER'}
+            {apiError ? 'API ERROR' : summary ? 'LIVE RUNNER' : 'STANDBY'}
           </span>
           <button
             onClick={loadReplayData}
+            disabled={loading || isRunning}
             className="p-1.5 bg-[#f4f1ea] text-[#1A1614] hover:bg-[#1A1614] hover:text-white border border-[#1A1614] transition-colors cursor-pointer"
-            title="Reload replay data"
+            title="Reload replay data from gateway"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -98,26 +119,26 @@ export const ReplayPage: React.FC = () => {
         />
         <StatCard
           title="Regression Pass Rate"
-          value={summary ? `${(summary.passRate * 100).toFixed(0)}%` : '0%'}
-          subtitle={summary ? `${summary.passedCases}/${summary.totalCases} verified safe` : '0/0'}
+          value={summary ? `${(summary.passRate * 100).toFixed(0)}%` : '—'}
+          subtitle={summary ? `${summary.passedCases}/${summary.totalCases} verified safe` : 'Awaiting execution'}
           icon={<CheckCircle className="w-4 h-4 text-emerald-400" />}
-          trend={isFromMock ? 'Simulated' : 'Deterministic'}
-          trendPositive={true}
+          trend={summary ? 'Deterministic' : 'Pending'}
+          trendPositive={summary ? summary.passRate === 1 : false}
         />
         <StatCard
           title="Average Latency"
-          value={summary ? `${summary.averageLatencyMs} ms` : '0 ms'}
+          value={summary ? `${summary.averageLatencyMs} ms` : '—'}
           subtitle="Interception overhead"
-          trend="Fast"
+          trend={summary ? 'Measured' : 'Pending'}
           trendPositive={true}
         />
         <StatCard
           title="Batch Execution"
-          value={summary?.runId ?? 'run-init'}
-          subtitle={summary ? summary.timestamp : 'Pending run'}
+          value={summary?.runId ?? 'None'}
+          subtitle={summary ? summary.timestamp : 'No run recorded'}
           icon={<AlertCircle className="w-4 h-4 text-cyan-400" />}
-          trend="Active"
-          trendPositive={true}
+          trend={summary ? 'Active' : 'Standby'}
+          trendPositive={summary !== null}
         />
       </div>
 
@@ -126,7 +147,7 @@ export const ReplayPage: React.FC = () => {
         <div>
           <h3 className="text-sm font-semibold text-slate-200">Replay Attack Harness</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Execute recorded malicious MCP payloads through TARS gateway to verify zero security regressions.
+            Execute recorded malicious MCP payloads through TARS gateway policy engine to verify zero security regressions.
           </p>
         </div>
         <button
@@ -146,58 +167,75 @@ export const ReplayPage: React.FC = () => {
           <div className="px-5 py-4 border-b border-slate-800 flex justify-between items-center">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-slate-200">Replay Regression Cases</h2>
-              <span className="text-[10px] text-amber-400/80 font-mono bg-amber-500/10 px-1.5 py-0.5 rounded">
-                {isFromMock ? 'Mock Suite' : 'Live Suite'}
+              <span className="text-[10px] text-emerald-400/80 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                Live Gateway Runner
               </span>
             </div>
-            <span className="text-xs text-slate-500 font-mono">Run: {summary?.runId}</span>
+            <span className="text-xs text-slate-500 font-mono">
+              {summary ? `Run: ${summary.runId}` : 'No active run'}
+            </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/50 text-slate-400 border-b border-slate-800/80 font-medium">
-                <tr>
-                  <th className="py-3 px-4">Test Case ID</th>
-                  <th className="py-3 px-4">Expected vs Actual</th>
-                  <th className="py-3 px-4">Result</th>
-                  <th className="py-3 px-4 text-right">Latency</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50 text-slate-300">
-                {summary?.results.map((r) => {
-                  const isSelected = selectedResult?.caseId === r.caseId
-                  return (
-                    <tr
-                      key={r.caseId}
-                      onClick={() => setSelectedResult(r)}
-                      className={`cursor-pointer transition-colors ${
-                        isSelected ? 'bg-indigo-950/40' : 'hover:bg-slate-800/30'
-                      }`}
-                    >
-                      <td className="py-3 px-4 font-mono font-medium text-slate-200">
-                        {r.caseId}
-                        {r.reasonCode && (
-                          <div className="text-[10px] font-mono text-slate-500">{r.reasonCode}</div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                          <Badge type={r.expectedAction} />
-                          <span className="text-slate-600">→</span>
-                          <Badge type={r.actualAction} />
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge type={r.passed ? 'PASSED' : 'FAILED'} />
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-slate-400">
-                        {r.latencyMs} ms
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            {loading && !summary ? (
+              <div className="py-16 text-center text-slate-400 text-xs">
+                <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin text-[#BF6B45]" />
+                Checking replay run status from gateway...
+              </div>
+            ) : !summary ? (
+              <div className="py-16 text-center text-slate-500 text-xs px-6">
+                <PlaySquare className="w-8 h-8 mx-auto mb-3 text-slate-600" />
+                <p className="font-semibold text-slate-300">No replay run executed yet</p>
+                <p className="mt-1 text-slate-500 max-w-sm mx-auto">
+                  Click <strong className="text-slate-300">"Run All Replay Tests"</strong> above to execute recorded security attack cases against the live TARS PolicyEngine.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950/50 text-slate-400 border-b border-slate-800/80 font-medium">
+                  <tr>
+                    <th className="py-3 px-4">Test Case ID</th>
+                    <th className="py-3 px-4">Expected vs Actual</th>
+                    <th className="py-3 px-4">Result</th>
+                    <th className="py-3 px-4 text-right">Latency</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50 text-slate-300">
+                  {summary.results.map((r) => {
+                    const isSelected = selectedResult?.caseId === r.caseId
+                    return (
+                      <tr
+                        key={r.caseId}
+                        onClick={() => setSelectedResult(r)}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected ? 'bg-indigo-950/40' : 'hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-mono font-medium text-slate-200">
+                          {r.caseId}
+                          {r.reasonCode && (
+                            <div className="text-[10px] font-mono text-slate-500">{r.reasonCode}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <Badge type={r.expectedAction} />
+                            <span className="text-slate-600">→</span>
+                            <Badge type={r.actualAction} />
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge type={r.passed ? 'PASSED' : 'FAILED'} />
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-slate-400">
+                          {r.latencyMs} ms
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -230,7 +268,7 @@ export const ReplayPage: React.FC = () => {
                     <Terminal className="w-3.5 h-3.5 text-indigo-400" />
                     Gateway Evaluation Output
                   </span>
-                  <span className="text-emerald-400">
+                  <span className={selectedResult.passed ? 'text-emerald-400' : 'text-rose-400'}>
                     {selectedResult.passed ? 'Verified Match' : 'Regression Fail'}
                   </span>
                 </div>
@@ -246,16 +284,26 @@ export const ReplayPage: React.FC = () => {
                 </pre>
               </div>
 
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-xs flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-emerald-300">
-                  Regression verification passed: deterministic guard matched expected security action without deviation.
+              <div
+                className={`border rounded-lg p-3 text-xs flex items-center gap-2 ${
+                  selectedResult.passed
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
+              >
+                <CheckCircle className={`w-4 h-4 shrink-0 ${selectedResult.passed ? 'text-emerald-400' : 'text-rose-400'}`} />
+                <span>
+                  {selectedResult.passed
+                    ? 'Regression verification passed: deterministic guard matched expected security action without deviation.'
+                    : 'Regression test failed: actual policy action diverged from expected security baseline.'}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="py-12 text-center text-slate-500 text-xs">
-              Select a test case to view execution detail
+            <div className="py-16 text-center text-slate-500 text-xs">
+              {summary
+                ? 'Select a test case to view execution detail'
+                : 'Execute the replay suite to inspect individual test case results'}
             </div>
           )}
         </div>

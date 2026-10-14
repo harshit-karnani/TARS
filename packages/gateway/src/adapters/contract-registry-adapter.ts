@@ -76,7 +76,8 @@ export class ContractRegistryAdapter implements IContractRegistry {
 
     if (!contract) {
       const computedHash = this.computeDefinitionHash({
-        name: toolName,
+        serverId,
+        toolName,
         description: advertisedDefinition.description,
         inputSchema: advertisedDefinition.inputSchema,
       });
@@ -100,7 +101,8 @@ export class ContractRegistryAdapter implements IContractRegistry {
     }
 
     const actualHash = this.computeDefinitionHash({
-      name: toolName,
+      serverId,
+      toolName,
       description: advertisedDefinition.description,
       inputSchema: advertisedDefinition.inputSchema,
     });
@@ -130,15 +132,50 @@ export class ContractRegistryAdapter implements IContractRegistry {
     };
   }
 
-  public computeDefinitionHash(definition: ToolDefinitionCandidate): string {
-    const canonicalPayload = {
-      name: 'name' in definition ? definition.name : definition.toolName,
-      description: definition.description || '',
-      inputSchema: definition.inputSchema || {},
+  public computeDefinitionHash(definition: ToolDefinitionCandidate | {
+    serverId?: string;
+    toolName?: string;
+    name?: string;
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+  }): string {
+    const resolvedToolName = ('name' in definition && definition.name ? definition.name : ('toolName' in definition && definition.toolName ? definition.toolName : '')).trim();
+    const serverId = 'serverId' in definition && typeof (definition as { serverId?: unknown }).serverId === 'string'
+      ? (definition as { serverId: string }).serverId
+      : '';
+    const normalized = {
+      serverId: serverId.trim(),
+      toolName: resolvedToolName,
+      description: (definition.description ?? '').trim(),
+      inputSchema: definition.inputSchema ?? { type: 'object' },
     };
 
-    const serialized = JSON.stringify(canonicalPayload, Object.keys(canonicalPayload).sort());
-    return crypto.createHash('sha256').update(serialized).digest('hex');
+    const canonicalString = this.canonicalizeJson(normalized);
+    return crypto.createHash('sha256').update(canonicalString, 'utf8').digest('hex');
+  }
+
+  private canonicalizeJson(value: unknown): string {
+    if (value === null || typeof value !== 'object') {
+      return JSON.stringify(value);
+    }
+
+    if (Array.isArray(value)) {
+      const elements = value.map((item) => this.canonicalizeJson(item));
+      return `[${elements.join(',')}]`;
+    }
+
+    const obj = value as Record<string, unknown>;
+    const sortedKeys = Object.keys(obj).sort();
+    const pairs: string[] = [];
+
+    for (const key of sortedKeys) {
+      const val = obj[key];
+      if (val !== undefined) {
+        pairs.push(`${JSON.stringify(key)}:${this.canonicalizeJson(val)}`);
+      }
+    }
+
+    return `{${pairs.join(',')}}`;
   }
 
   private seedDefaultContracts(): void {
@@ -149,8 +186,8 @@ export class ContractRegistryAdapter implements IContractRegistry {
         description: 'Reads safe file contents within sandbox',
         inputSchema: {
           type: 'object',
-          properties: { filePath: { type: 'string' } },
-          required: ['filePath'],
+          properties: { path: { type: 'string' } },
+          required: ['path'],
         },
         version: '1.0.0',
         status: 'ACTIVE',
@@ -180,14 +217,42 @@ export class ContractRegistryAdapter implements IContractRegistry {
           required: ['filePath', 'content'],
         },
         version: '1.0.0',
-        status: 'ACTIVE',
+        status: 'PENDING_REVIEW',
+      },
+      {
+        serverId: 'system-server',
+        toolName: 'execute_system_command',
+        description: 'Executes system shell command (Blocked by policy)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            command: { type: 'string' },
+          },
+          required: ['command'],
+        },
+        version: '1.0.0',
+        status: 'BLOCKED',
+      },
+      {
+        serverId: 'legacy-server',
+        toolName: 'legacy_tool',
+        description: 'Legacy tool pending sunset',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            param: { type: 'string' },
+          },
+        },
+        version: '0.9.0',
+        status: 'DEPRECATED',
       },
     ];
 
     for (const contract of defaultList) {
       const now = new Date().toISOString();
       const definitionHash = this.computeDefinitionHash({
-        name: contract.toolName,
+        serverId: contract.serverId,
+        toolName: contract.toolName,
         description: contract.description,
         inputSchema: contract.inputSchema,
       });

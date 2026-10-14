@@ -48,8 +48,7 @@ export async function main() {
   console.log(`   - Bind Address:       http://${host}:${port}`);
   console.log(`   - SQLite Audit DB:    ${dbPath}`);
   console.log(`   - Secret Redaction:   ${enableRedaction ? 'ENABLED' : 'DISABLED'}`);
-  console.log(`   - Allow Unknown:      ${allowUnknownTools ? 'YES' : 'NO (Fail-Closed)'}`);
-  console.log(`   - Upstream Command:   ${upstreamCommand ? `${upstreamCommand} ${(upstreamArgs || []).join(' ')}` : 'Built-in Simulated Upstream MCP Handler'}`);
+  console.log(`   - Upstream Command:   ${upstreamCommand ? `${upstreamCommand} ${(upstreamArgs || []).join(' ')}` : 'None (Unconfigured - External tool forwarding inactive)'}`);
   console.log('----------------------------------------------------------------');
 
   await gateway.initialize(true);

@@ -57,9 +57,9 @@ export class McpGatewayServer {
           inputSchema: {
             type: 'object',
             properties: {
-              filePath: { type: 'string', description: 'Path to file to read' },
+              path: { type: 'string', description: 'Path to file to read' },
             },
-            required: ['filePath'],
+            required: ['path'],
           },
         },
         {

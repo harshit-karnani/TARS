@@ -6,12 +6,6 @@ import type {
   ContractDriftResult,
   ReplayRunSummary,
 } from '../types'
-import {
-  MOCK_SECURITY_EVENTS,
-  MOCK_TOOL_CONTRACTS,
-  MOCK_DRIFT_RESULTS,
-  MOCK_REPLAY_SUMMARY,
-} from '../data/mockData'
 
 export interface ApiFetchResult<T> {
   data: T
@@ -23,7 +17,7 @@ export interface ApiFetchResult<T> {
 /**
  * TARS Gateway API Client
  *
- * Implements real fetch calls against:
+ * Implements genuine live fetch calls against:
  *   - GET /api/events
  *   - GET /api/contracts
  *   - GET /api/contracts/:serverId/:toolName/drift
@@ -31,15 +25,14 @@ export interface ApiFetchResult<T> {
  *   - POST /api/replay/run
  *   - SSE GET /api/events/stream
  *
- * Environment-configurable API base URL (VITE_API_URL or defaults to empty string for reverse proxy).
- * Clearly preserves real API error states and distinguishes live data from explicit demo mock fallback.
+ * Environment-configurable API base URL (VITE_API_URL or relative proxy).
+ * Never silently falls back to mock data or invents fake results on API failure.
  */
 export class TarsApiClient {
   private baseUrl: string
-  public mockModeEnabled = true // explicit toggle for demo mode
+  public mockModeEnabled = false
 
   constructor(baseUrl?: string) {
-    // Configurable via Vite environment variable VITE_API_URL, or window global, or relative proxy
     const envBase = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
     this.baseUrl = (baseUrl ?? envBase ?? '').replace(/\/$/, '')
   }
@@ -50,13 +43,12 @@ export class TarsApiClient {
 
   private async fetchEnvelope<T>(
     path: string,
-    mockFallback: T,
     options?: RequestInit
   ): Promise<ApiFetchResult<T>> {
     const url = `${this.baseUrl}${path}`
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 2500)
+      const timeoutId = setTimeout(() => controller.abort(), 3500)
 
       const res = await fetch(url, {
         signal: controller.signal,
@@ -83,17 +75,15 @@ export class TarsApiClient {
         }
       }
 
-      throw new Error(json?.error?.message || 'Invalid ApiResponse envelope')
+      throw new Error(json?.error?.message || 'Invalid ApiResponse envelope structure')
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Network error'
-      // Visible demo fallback: return mock data, but clearly declare isFromMock=true and pass error message
+      const errorMessage = err instanceof Error ? err.message : 'Network error connecting to TARS Gateway'
       return {
-        data: mockFallback,
-        isFromMock: true,
+        data: null as unknown as T,
+        isFromMock: false,
         error: errorMessage,
         rawEnvelope: {
           success: false,
-          data: mockFallback,
           error: {
             code: 'GATEWAY_UNAVAILABLE',
             message: errorMessage,
@@ -125,7 +115,7 @@ export class TarsApiClient {
 
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 2500)
+      const timeoutId = setTimeout(() => controller.abort(), 3500)
 
       const res = await fetch(url, {
         signal: controller.signal,
@@ -133,10 +123,9 @@ export class TarsApiClient {
       })
       clearTimeout(timeoutId)
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+      if (!res.ok) throw new Error(`Gateway returned HTTP ${res.status}: ${res.statusText}`)
 
       const json = await res.json()
-      // Support either raw array data or PaginatedResponse<AuditEvent>
       if (json.success && json.data) {
         if (Array.isArray(json.data)) {
           return { data: json.data as AuditEvent[], isFromMock: false, rawEnvelope: json }
@@ -145,12 +134,13 @@ export class TarsApiClient {
           return { data: paginated.items, isFromMock: false, rawEnvelope: json }
         }
       }
-      throw new Error(json.error?.message || 'Invalid envelope')
+      throw new Error(json.error?.message || 'Invalid envelope format')
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Gateway unavailable'
       return {
-        data: MOCK_SECURITY_EVENTS,
-        isFromMock: true,
-        error: err instanceof Error ? err.message : 'Gateway unavailable',
+        data: [],
+        isFromMock: false,
+        error: errorMessage,
       }
     }
   }
@@ -159,7 +149,16 @@ export class TarsApiClient {
    * GET /api/contracts
    */
   async getContracts(): Promise<ApiFetchResult<ToolContract[]>> {
-    return this.fetchEnvelope<ToolContract[]>('/api/contracts', MOCK_TOOL_CONTRACTS)
+    const res = await this.fetchEnvelope<ToolContract[]>('/api/contracts')
+    if (res.error || !res.data) {
+      return {
+        data: [],
+        isFromMock: false,
+        error: res.error || 'Failed to load contracts',
+        rawEnvelope: res.rawEnvelope,
+      }
+    }
+    return res
   }
 
   /**
@@ -169,46 +168,35 @@ export class TarsApiClient {
     serverId: string,
     toolName: string
   ): Promise<ApiFetchResult<ContractDriftResult>> {
-    const fallbackKey = `${serverId}:${toolName}`
-    const fallback: ContractDriftResult = MOCK_DRIFT_RESULTS[fallbackKey] || {
-      serverId,
-      toolName,
-      contractVersion: '1.0.0',
-      hasDrift: false,
-      expectedHash: 'sha256:unknown...',
-      actualHash: 'sha256:unknown...',
-      detectedAt: new Date().toISOString(),
-      schemaDifferences: [],
-    }
-
     return this.fetchEnvelope<ContractDriftResult>(
-      `/api/contracts/${encodeURIComponent(serverId)}/${encodeURIComponent(toolName)}/drift`,
-      fallback
+      `/api/contracts/${encodeURIComponent(serverId)}/${encodeURIComponent(toolName)}/drift`
     )
   }
 
   /**
    * GET /api/replay/runs
    */
-  async getReplayRuns(): Promise<ApiFetchResult<ReplayRunSummary>> {
-    const res = await this.fetchEnvelope<ReplayRunSummary | ReplayRunSummary[]>(
-      '/api/replay/runs',
-      MOCK_REPLAY_SUMMARY
-    )
-    if (Array.isArray(res.data)) {
-      const summary = res.data[0] || MOCK_REPLAY_SUMMARY
+  async getReplayRuns(): Promise<ApiFetchResult<ReplayRunSummary | null>> {
+    const res = await this.fetchEnvelope<ReplayRunSummary | ReplayRunSummary[]>('/api/replay/runs')
+    if (res.error || !res.data) {
       return {
-        data: summary,
-        isFromMock: res.isFromMock,
+        data: null,
+        isFromMock: false,
         error: res.error,
-        rawEnvelope: res.rawEnvelope
-          ? {
-              ...res.rawEnvelope,
-              data: summary,
-            }
-          : undefined,
+        rawEnvelope: res.rawEnvelope as ApiResponse<ReplayRunSummary | null> | undefined,
       }
     }
+
+    if (Array.isArray(res.data)) {
+      const summary = res.data.length > 0 ? res.data[0] : null
+      return {
+        data: summary,
+        isFromMock: false,
+        error: res.error,
+        rawEnvelope: res.rawEnvelope as ApiResponse<ReplayRunSummary | null> | undefined,
+      }
+    }
+
     return res as ApiFetchResult<ReplayRunSummary>
   }
 
@@ -216,13 +204,7 @@ export class TarsApiClient {
    * POST /api/replay/run
    */
   async runReplaySuite(): Promise<ApiFetchResult<ReplayRunSummary>> {
-    const mockNewRun: ReplayRunSummary = {
-      ...MOCK_REPLAY_SUMMARY,
-      runId: `run-sim-${Date.now().toString().slice(-4)}`,
-      timestamp: new Date().toISOString(),
-    }
-
-    return this.fetchEnvelope<ReplayRunSummary>('/api/replay/run', mockNewRun, {
+    return this.fetchEnvelope<ReplayRunSummary>('/api/replay/run', {
       method: 'POST',
     })
   }

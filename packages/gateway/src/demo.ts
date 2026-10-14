@@ -20,7 +20,7 @@ export async function runGatewayDemo(): Promise<void> {
       request: {
         requestId: 'demo-req-1',
         toolName: 'read_file',
-        arguments: { filePath: 'reports/q3_summary.txt' },
+        arguments: { path: 'reports/q3_summary.txt' },
         clientIdentity: 'claude-desktop-client',
         timestamp: new Date().toISOString(),
       },
@@ -30,7 +30,7 @@ export async function runGatewayDemo(): Promise<void> {
       request: {
         requestId: 'demo-req-2',
         toolName: 'read_file',
-        arguments: { filePath: '../../etc/shadow' },
+        arguments: { path: '../../etc/shadow' },
         clientIdentity: 'malicious-agent-session',
         timestamp: new Date().toISOString(),
       },
@@ -51,7 +51,7 @@ export async function runGatewayDemo(): Promise<void> {
         requestId: 'demo-req-4',
         toolName: 'read_file',
         arguments: {
-          filePath: 'config.json',
+          path: 'config.json',
           apiKey: 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890',
         },
         clientIdentity: 'developer-workspace',

@@ -12,8 +12,10 @@ import type {
 export class ReplayAdapter {
   private runs: ReplayRunSummary[] = [];
 
-  constructor() {
-    this.seedBaselineRuns();
+  constructor(seedBaseline: boolean = false) {
+    if (seedBaseline) {
+      this.seedBaselineRuns();
+    }
   }
 
   public async getReplayRuns(): Promise<ReplayRunSummary[]> {
@@ -46,7 +48,7 @@ export class ReplayAdapter {
         caseId: 'attack-path-traversal-01',
         toolName: 'read_file',
         serverId: 'system-fs-server',
-        arguments: { filePath: '../../../../etc/passwd' },
+        arguments: { path: '../../../../etc/passwd' },
         expectedAction: 'BLOCK',
         expectedReasonCode: 'SENSITIVE_PATH_ACCESS',
       },
@@ -62,7 +64,7 @@ export class ReplayAdapter {
         caseId: 'safe-read-query-03',
         toolName: 'read_file',
         serverId: 'system-fs-server',
-        arguments: { filePath: 'safe_document.txt' },
+        arguments: { path: 'safe_document.txt' },
         expectedAction: 'ALLOW',
         expectedReasonCode: 'POLICY_ALLOW',
       },

@@ -56,18 +56,21 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     expect(screen.getAllByRole('button', { name: /Run All Replay Tests/i }).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('navigates to Decision Evidence and displays audit breakdown', () => {
+  it('navigates to Decision Evidence and displays audit breakdown', async () => {
     render(<App />)
 
     const evidenceTabButton = screen.getByRole('button', { name: /Decision Evidence/i })
     fireEvent.click(evidenceTabButton)
 
     expect(screen.getAllByText(/Auditable Decision Evidence/i).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText(/Deterministic Policy Evaluation Breakdown/i)).toBeTruthy()
-    expect(screen.getByText(/Prompt-Injection Risk Signal/i)).toBeTruthy()
+    // Supports either live populated event or honest empty state without crashing
+    const detailOrEmpty = await screen.findByText(
+      /Deterministic Policy Evaluation Breakdown|No Security Audit Records Found/i
+    )
+    expect(detailOrEmpty).toBeTruthy()
   })
 
-  it('verifies apiClient methods match agreed endpoints envelope', async () => {
+  it('verifies apiClient methods match agreed endpoints envelope and never return fake mock data', async () => {
     expect(typeof apiClient.getEvents).toBe('function')
     expect(typeof apiClient.getContracts).toBe('function')
     expect(typeof apiClient.getContractDrift).toBe('function')
@@ -75,11 +78,15 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     expect(typeof apiClient.runReplaySuite).toBe('function')
     expect(typeof apiClient.subscribeEventStream).toBe('function')
 
-    // Calling returns gracefully enveloped data from live gateway or fallback
+    // Calling returns genuinely enveloped data without silent mock fallback
     const res = await apiClient.getEvents()
     expect(res).toHaveProperty('data')
     expect(Array.isArray(res.data)).toBe(true)
-    expect(typeof res.isFromMock).toBe('boolean')
+    expect(res.isFromMock).toBe(false)
+
+    // Contract drift check does not fabricate fake sync
+    const driftRes = await apiClient.getContractDrift('nonexistent-server', 'nonexistent-tool')
+    expect(driftRes.isFromMock).toBe(false)
   })
 })
 
