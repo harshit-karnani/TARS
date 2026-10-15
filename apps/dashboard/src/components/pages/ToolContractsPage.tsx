@@ -122,10 +122,12 @@ export const ToolContractsPage: React.FC = () => {
       {/* Stitch Giant Hero + Action Button */}
       <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b-[1.5px] border-[#1A1614]">
         <div>
-          <h1 className="font-headline text-6xl sm:text-7xl lg:text-9xl tracking-tight leading-[0.88] uppercase text-[#1A1614] m-0 select-none">
-            DID THE TOOLS<br />CHANGE.
+          <h1 className="font-headline text-2xl sm:text-3xl md:text-4xl tracking-tight leading-tight uppercase text-[#1A1614] m-0 select-none">
+            <span className="typewriter-line typewriter-line-1">DID THE TOOLS</span>
+            <br />
+            <span className="typewriter-line typewriter-line-2">CHANGE.</span>
           </h1>
-          <p className="mt-4 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold">
+          <p className="mt-3 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold animate-hero-text [animation-delay:1.4s]">
             02 // CANONICAL HASH VERIFICATION & SCHEMA DRIFT ENCLAVE
           </p>
         </div>

@@ -1,4 +1,4 @@
-export type NavTab = 'events' | 'contracts' | 'replay' | 'evidence'
+export type NavTab = 'events' | 'contracts' | 'replay' | 'evidence' | 'mlRisk'
 
 // Agreed Security Action values: ALLOW | BLOCK | REQUIRE_APPROVAL
 // (Matching @tars/shared-types SecurityAction)
@@ -67,6 +67,16 @@ export interface AuditEvent {
     riskScore?: number
     evaluatedChecks: string[]
     notes?: string
+    mlShadow?: {
+      predictedRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN' | string
+      confidence?: number
+      classProbabilities?: Record<string, number>
+      model?: string
+      mode?: string
+      success?: boolean
+      latencyMs?: number
+      error?: string
+    }
   }
   errorMessage?: string
 }

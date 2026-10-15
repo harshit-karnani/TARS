@@ -20,6 +20,17 @@ const SENSITIVE_SYSTEM_PREFIXES = [
   '~/.gnupg',
 ];
 
+const SENSITIVE_FILE_PATTERNS = [
+  'sensitive.txt',
+  '.env',
+  'id_rsa',
+  'id_ed25519',
+  'credentials.json',
+  'secrets.json',
+  'passwd',
+  'shadow',
+];
+
 /**
  * Checks a path argument against traversal patterns and restricted system locations.
  */
@@ -46,6 +57,17 @@ export function checkFilePath(filePath: string, allowedRoot?: string): PathCheck
       return {
         isSafe: false,
         violationReason: `Access to sensitive system path restricted (${prefix})`,
+      };
+    }
+  }
+
+  // Sensitive protected file checks (e.g. sensitive.txt, .env)
+  const baseName = path.basename(normalized).toLowerCase();
+  for (const sensitiveFile of SENSITIVE_FILE_PATTERNS) {
+    if (baseName === sensitiveFile.toLowerCase() || baseName.endsWith(sensitiveFile.toLowerCase())) {
+      return {
+        isSafe: false,
+        violationReason: `Access to protected sensitive file restricted (${baseName})`,
       };
     }
   }

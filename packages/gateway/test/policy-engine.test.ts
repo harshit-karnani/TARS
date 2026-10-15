@@ -136,4 +136,63 @@ describe('Phase 2 — Deterministic Policy Engine', () => {
     expect(decision.evidence.matchedRuleId).toBe('rule-require-approval-for-mutations');
     expect(decision.evidence.evaluatedChecks).toContain('path_traversal_check');
   });
+
+  it('deterministically blocks reads of sensitive.txt while allowing safe.txt', () => {
+    const engine = new PolicyEngine();
+
+    // Reading sensitive.txt must be blocked
+    const sensitiveReq: ToolCallRequest = {
+      requestId: 'req-read-sensitive',
+      toolName: 'read_file',
+      arguments: { path: 'sensitive.txt' },
+      timestamp: new Date().toISOString(),
+    };
+    const sensitiveDecision = engine.evaluate(sensitiveReq);
+    expect(sensitiveDecision.action).toBe('BLOCK');
+    expect(sensitiveDecision.reasonCode).toBe('SENSITIVE_PATH_ACCESS');
+
+    // Reading safe.txt must be allowed
+    const safeReq: ToolCallRequest = {
+      requestId: 'req-read-safe',
+      toolName: 'read_file',
+      arguments: { path: 'safe.txt' },
+      timestamp: new Date().toISOString(),
+    };
+    const safeDecision = engine.evaluate(safeReq);
+    expect(safeDecision.action).toBe('ALLOW');
+    expect(safeDecision.reasonCode).toBe('POLICY_ALLOW');
+  });
+
+  it('ensures shell execution remains blocked', () => {
+    const engine = new PolicyEngine();
+    const shellReq: ToolCallRequest = {
+      requestId: 'req-exec-block',
+      toolName: 'execute_system_command',
+      arguments: { command: 'whoami' },
+      timestamp: new Date().toISOString(),
+    };
+    const decision = engine.evaluate(shellReq);
+    expect(decision.action).toBe('BLOCK');
+  });
+
+  it('ensures writes and deletes require approval', () => {
+    const engine = new PolicyEngine();
+
+    const writeReq: ToolCallRequest = {
+      requestId: 'req-write-approval',
+      toolName: 'write_file',
+      arguments: { path: 'report.txt', content: 'draft' },
+      timestamp: new Date().toISOString(),
+    };
+    expect(engine.evaluate(writeReq).action).toBe('REQUIRE_APPROVAL');
+
+    const deleteReq: ToolCallRequest = {
+      requestId: 'req-delete-approval',
+      toolName: 'delete_file',
+      arguments: { path: 'old.txt' },
+      timestamp: new Date().toISOString(),
+    };
+    expect(engine.evaluate(deleteReq).action).toBe('REQUIRE_APPROVAL');
+  });
 });
+

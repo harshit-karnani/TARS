@@ -17,10 +17,25 @@ describe('Path Traversal Checker', () => {
     expect(res.violationReason).toContain('sensitive system path');
   });
 
-  it('allows safe relative and normalized file paths', () => {
+  it('allows safe relative and normalized file paths including safe.txt', () => {
     const res = checkFilePath('safe_data/records.json');
     expect(res.isSafe).toBe(true);
     expect(res.normalizedPath).toBeDefined();
+
+    const safeFile = checkFilePath('safe.txt');
+    expect(safeFile.isSafe).toBe(true);
+  });
+
+  it('blocks protected sensitive files like sensitive.txt and .env', () => {
+    const res1 = checkFilePath('sensitive.txt');
+    expect(res1.isSafe).toBe(false);
+    expect(res1.violationReason).toContain('protected sensitive file restricted');
+
+    const res2 = checkFilePath('subdir/sensitive.txt');
+    expect(res2.isSafe).toBe(false);
+
+    const res3 = checkFilePath('.env');
+    expect(res3.isSafe).toBe(false);
   });
 
   it('inspects argument objects recursively for path violations', () => {
@@ -35,3 +50,4 @@ describe('Path Traversal Checker', () => {
     expect(check.isSafe).toBe(false);
   });
 });
+

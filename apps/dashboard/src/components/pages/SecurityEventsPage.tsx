@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import type { AuditEvent, SecurityAction } from '../../types'
+import { formatIST } from '../../utils/formatTime'
 
 export const SecurityEventsPage: React.FC<{
   onInspectEvidence?: (event: AuditEvent) => void
@@ -62,16 +63,26 @@ export const SecurityEventsPage: React.FC<{
   useEffect(() => {
     loadEvents()
 
+    const intervalId = setInterval(() => {
+      loadEvents()
+    }, 2000)
+
     const unsubscribe = apiClient.subscribeEventStream(
       (newEvent) => {
-        setEvents((prev) => [newEvent, ...prev.slice(0, 99)])
+        setEvents((prev) => {
+          if (prev.some((e) => e.id === newEvent.id)) return prev
+          return [newEvent, ...prev.slice(0, 99)]
+        })
       },
       (status) => {
         setSseState(status)
       }
     )
 
-    return () => unsubscribe()
+    return () => {
+      clearInterval(intervalId)
+      unsubscribe()
+    }
   }, [filterAction, filterTool])
 
   // Extract unique filter choices
@@ -112,10 +123,12 @@ export const SecurityEventsPage: React.FC<{
     <div className="space-y-8 font-body">
       {/* Giant Condensed Left-Aligned Headline matching Stitch UI */}
       <section className="border-b-[1.5px] border-[#1A1614] pb-6">
-        <h1 className="font-headline text-6xl sm:text-8xl md:text-9xl tracking-tight leading-[0.88] uppercase text-[#1A1614] select-none m-0">
-          WHAT GOT<br />BLOCKED.
+        <h1 className="font-headline text-2xl sm:text-3xl md:text-4xl tracking-tight leading-tight uppercase text-[#1A1614] select-none m-0">
+          <span className="typewriter-line typewriter-line-1">WHAT GOT</span>
+          <br />
+          <span className="typewriter-line typewriter-line-2">BLOCKED.</span>
         </h1>
-        <p className="mt-4 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold">
+        <p className="mt-3 font-mono text-xs uppercase tracking-widest text-[#1A1614]/70 font-semibold animate-hero-text [animation-delay:1.4s]">
           01 // MCP RUNTIME GATEWAY SECURITY TIMELINE & INTERCEPTION STREAM
         </p>
       </section>
@@ -412,7 +425,7 @@ export const SecurityEventsPage: React.FC<{
                         </td>
                         <td className="py-3 px-4 font-mono">
                           <div className="font-semibold text-slate-200">{evt.id}</div>
-                          <div className="text-[10px] text-slate-500">{evt.timestamp}</div>
+                          <div className="text-[10px] text-white font-medium">{formatIST(evt.timestamp)}</div>
                         </td>
                         <td className="py-3 px-4 font-mono text-slate-400">
                           {evt.clientIdentity || 'anonymous-client'}

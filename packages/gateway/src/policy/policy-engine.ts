@@ -296,6 +296,17 @@ export class PolicyEngine {
           },
         },
         {
+          id: 'rule-block-sensitive-files',
+          name: 'Block Reads of Protected Sensitive Files',
+          action: 'BLOCK',
+          reasonCode: 'SENSITIVE_PATH_ACCESS',
+          description: 'Blocks reading protected sensitive files including sensitive.txt, credentials, and secrets.',
+          condition: {
+            toolNames: ['read_file', 'read_doc'],
+            blockedPatterns: ['sensitive.txt', '.env', 'id_rsa', 'id_ed25519', 'credentials.json', 'secrets.json'],
+          },
+        },
+        {
           id: 'rule-allow-safe-read',
           name: 'Allow Safe Read Tools',
           action: 'ALLOW',

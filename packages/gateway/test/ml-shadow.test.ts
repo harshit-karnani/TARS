@@ -561,4 +561,125 @@ describe('ML-Based Adaptive Risk Scoring in Shadow Mode', () => {
     expect(isSuspiciousCommand('execute_system_command')).toBe(1);
     expect(isSuspiciousCommand('read_file')).toBe(0);
   });
+
+  it('11. An ML LOW prediction cannot override BLOCK for protected sensitive files (sensitive.txt)', async () => {
+    // Model erroneously returns LOW risk with 99% confidence for sensitive.txt
+    const mockFetch: typeof fetch = async () => {
+      return new Response(
+        JSON.stringify({
+          risk: 'LOW',
+          confidence: 0.99,
+          class_probabilities: { LOW: 0.99, MEDIUM: 0.01, HIGH: 0.0 },
+          mode: 'shadow',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+
+    let forwarderCalled = false;
+    const mockForwarder = {
+      forwardToolCall: async () => {
+        forwarderCalled = true;
+        return { requestId: 'test', action: 'ALLOW' as const, success: true, latencyMs: 1 };
+      },
+      close: async () => {},
+    };
+
+    const mlClient = new MlShadowClient({ fetchFn: mockFetch });
+    const gateway = new TarsGateway(
+      {
+        port: 0,
+        dbPath: ':memory:',
+        enableMlShadowScoring: true,
+      },
+      {
+        forwarder: mockForwarder,
+        mlShadowClient: mlClient,
+      }
+    );
+    await gateway.initialize(false);
+
+    const request: ToolCallRequest = {
+      requestId: 'req-sensitive-low-ml',
+      toolName: 'read_file',
+      arguments: { path: 'sensitive.txt' },
+      timestamp: new Date().toISOString(),
+    };
+
+    const res = await gateway.handleToolCall(request);
+    // MUST be BLOCK! Deterministic security policy is authoritative and cannot be overridden by ML
+    expect(res.action).toBe('BLOCK');
+    expect(res.success).toBe(false);
+    expect(forwarderCalled).toBe(false);
+
+    const events = await gateway.getAuditStorage().queryEvents({ requestId: 'req-sensitive-low-ml' });
+    expect(events.length).toBe(1);
+    expect(events[0].action).toBe('BLOCK');
+    expect(events[0].executionStatus).toBe('BLOCKED');
+    expect(events[0].reasonCode).toBe('SENSITIVE_PATH_ACCESS');
+    // Confirm ML shadow prediction is recorded as advisory evidence only
+    expect(events[0].decisionEvidence?.mlShadow?.predictedRisk).toBe('LOW');
+
+    await gateway.shutdown();
+  });
+
+  it('12. An ML LOW prediction cannot override REQUIRE_APPROVAL for mutations', async () => {
+    // Model erroneously returns LOW risk for file write
+    const mockFetch: typeof fetch = async () => {
+      return new Response(
+        JSON.stringify({
+          risk: 'LOW',
+          confidence: 0.95,
+          class_probabilities: { LOW: 0.95, MEDIUM: 0.03, HIGH: 0.02 },
+          mode: 'shadow',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    };
+
+    let forwarderCalled = false;
+    const mockForwarder = {
+      forwardToolCall: async () => {
+        forwarderCalled = true;
+        return { requestId: 'test', action: 'ALLOW' as const, success: true, latencyMs: 1 };
+      },
+      close: async () => {},
+    };
+
+    const mlClient = new MlShadowClient({ fetchFn: mockFetch });
+    const gateway = new TarsGateway(
+      {
+        port: 0,
+        dbPath: ':memory:',
+        enableMlShadowScoring: true,
+      },
+      {
+        forwarder: mockForwarder,
+        mlShadowClient: mlClient,
+      }
+    );
+    await gateway.initialize(false);
+
+    const request: ToolCallRequest = {
+      requestId: 'req-mutation-low-ml',
+      toolName: 'write_file',
+      arguments: { filePath: 'critical_config.json', content: 'hacked' },
+      timestamp: new Date().toISOString(),
+    };
+
+    const res = await gateway.handleToolCall(request);
+    // MUST remain REQUIRE_APPROVAL! ML cannot turn mutation into automatic ALLOW
+    expect(res.action).toBe('REQUIRE_APPROVAL');
+    expect(res.success).toBe(false);
+    expect(forwarderCalled).toBe(false);
+
+    const events = await gateway.getAuditStorage().queryEvents({ requestId: 'req-mutation-low-ml' });
+    expect(events.length).toBe(1);
+    expect(events[0].action).toBe('REQUIRE_APPROVAL');
+    expect(events[0].executionStatus).toBe('PENDING');
+    expect(events[0].decisionEvidence?.mlShadow?.predictedRisk).toBe('LOW');
+
+    await gateway.shutdown();
+  });
 });
+

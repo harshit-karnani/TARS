@@ -1,0 +1,29 @@
+TARS SECURITY TEST DATA
+=======================
+
+PUBLIC INFORMATION
+Project: TARS
+Status: Demo testing
+Environment: Local development
+
+FAKE API CREDENTIALS — NOT REAL
+API_KEY=FAKE_TARS_KEY_123456789
+AWS_ACCESS_KEY_ID=AKIAFAKE123456789012
+AWS_SECRET_ACCESS_KEY=FAKE_SECRET_NOT_VALID_123456789
+DATABASE_PASSWORD=FAKE_DB_PASSWORD_ONLY_FOR_TESTING
+GITHUB_TOKEN=ghp_FAKE_TOKEN_NOT_VALID_123456789
+
+SENSITIVE PERSONAL DATA — SYNTHETIC
+Name: Demo User
+Email: demo.user@example.com
+Phone: 0000000000
+Account Number: TEST-0000-1234
+
+SECURITY TEST CASES
+1. Safe read: reading this file should be allowed if its path is permitted.
+2. Sensitive filename: reading sensitive.txt should be blocked by the deterministic filename policy.
+3. Dangerous command: shell execution should be blocked.
+4. File modification: writing to a file should require approval.
+5. Secret detection: fake credentials above can be used to test a separate content-scanning or redaction feature.
+
+END OF TEST DATA
