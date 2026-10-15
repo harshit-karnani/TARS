@@ -1,7 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { ToolCallRequest, ToolCallResponse, GatewayConfig } from '@tars/shared-types';
-import { redactPayload } from '../security/redactor.js';
+import { redactPayload, redactString } from '../security/redactor.js';
 
 export interface IMcpForwarder {
   forwardToolCall(request: ToolCallRequest): Promise<ToolCallResponse>;
@@ -127,7 +127,14 @@ export class McpForwarder implements IMcpForwarder {
         (sanitizedContent as { isError?: unknown }).isError === true;
 
       if (isMcpToolError) {
-        const extractedMsg = this.extractErrorMessage(sanitizedContent);
+        let extractedMsg = this.extractErrorMessage(sanitizedContent);
+        if (this.config.enableRedaction) {
+          const redactedErr = redactString(extractedMsg);
+          extractedMsg = redactedErr.output;
+          if (redactedErr.redactedTypes.length > 0) {
+            wasRedacted = true;
+          }
+        }
         return {
           requestId: request.requestId,
           action: 'ALLOW',
@@ -150,13 +157,22 @@ export class McpForwarder implements IMcpForwarder {
     } catch (err: unknown) {
       const latencyMs = Math.round((performance.now() - startTime) * 100) / 100;
       const errorMsg = err instanceof Error ? err.message : String(err);
+      let sanitizedError = `Upstream tool execution error: ${errorMsg}`;
+      let wasRedacted = false;
+
+      if (this.config.enableRedaction) {
+        const errorRedaction = redactString(sanitizedError);
+        sanitizedError = errorRedaction.output;
+        wasRedacted = errorRedaction.redactedTypes.length > 0;
+      }
 
       return {
         requestId: request.requestId,
         action: 'ALLOW', // The policy allowed it, but execution failed at the upstream layer
         success: false,
-        error: `Upstream tool execution error: ${errorMsg}`,
+        error: sanitizedError,
         latencyMs,
+        redacted: wasRedacted,
       };
     }
   }

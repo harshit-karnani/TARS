@@ -18,6 +18,7 @@ import { ContractRegistryAdapter } from './adapters/contract-registry-adapter.js
 import { ReplayAdapter } from './adapters/replay-adapter.js';
 import { MlShadowClient, type IMlShadowClient } from './ml/ml-shadow-client.js';
 import { extractMlFeatures } from './ml/feature-extractor.js';
+import { redactPayload, redactString } from './security/redactor.js';
 
 export interface GatewayComponents {
   policyEngine?: PolicyEngine;
@@ -313,6 +314,28 @@ export class TarsGateway {
     const response = await this.forwarder.forwardToolCall(forwardedRequest);
     const totalLatencyMs = Math.round((performance.now() - startTime) * 100) / 100;
 
+    // Response Guard: Sanitize response content and error messages before returning to client or logging
+    let sanitizedContent = response.content;
+    let sanitizedError = response.error;
+    let wasRedacted = Boolean(response.redacted);
+
+    if (this.config.enableRedaction) {
+      if (response.content !== undefined) {
+        const contentRedaction = redactPayload(response.content);
+        sanitizedContent = contentRedaction.sanitized;
+        if (contentRedaction.wasRedacted) {
+          wasRedacted = true;
+        }
+      }
+      if (response.error) {
+        const errorRedaction = redactString(response.error);
+        sanitizedError = errorRedaction.output;
+        if (errorRedaction.redactedTypes.length > 0) {
+          wasRedacted = true;
+        }
+      }
+    }
+
     const event: AuditEvent = {
       id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       requestId: request.requestId,
@@ -326,10 +349,10 @@ export class TarsGateway {
       contractVersion: decision.contractVersion,
       clientIdentity: request.clientIdentity,
       parameters: decision.sanitizedArguments,
-      redacted: response.redacted,
+      redacted: wasRedacted,
       latencyMs: totalLatencyMs,
       decisionEvidence: decisionEvidenceWithShadow,
-      errorMessage: response.error,
+      errorMessage: sanitizedError,
     };
 
     await this.auditStorage.recordEvent(event);
@@ -337,6 +360,9 @@ export class TarsGateway {
 
     return {
       ...response,
+      content: sanitizedContent,
+      error: sanitizedError,
+      redacted: wasRedacted,
       latencyMs: totalLatencyMs,
     };
   }

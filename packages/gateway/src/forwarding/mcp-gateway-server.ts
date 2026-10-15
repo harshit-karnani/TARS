@@ -7,6 +7,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { TarsGateway } from '../gateway.js';
 import type { ToolCallRequest } from '@tars/shared-types';
+import { redactString } from '../security/redactor.js';
 
 export class McpGatewayServer {
   private server: Server;
@@ -107,69 +108,94 @@ export class McpGatewayServer {
       const toolArguments = (request.params.arguments as Record<string, unknown>) || {};
       const requestId = `mcp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-      const gatewayRequest: ToolCallRequest = {
-        requestId,
-        toolName,
-        arguments: toolArguments,
-        clientIdentity: 'mcp-client-stdio',
-        timestamp: new Date().toISOString(),
-      };
+      try {
+        const gatewayRequest: ToolCallRequest = {
+          requestId,
+          toolName,
+          arguments: toolArguments,
+          clientIdentity: 'mcp-client-stdio',
+          timestamp: new Date().toISOString(),
+        };
 
-      // Runtime path: MCP client -> TARS gateway -> policy engine -> upstream server -> response guard -> client
-      const result = await this.gateway.handleToolCall(gatewayRequest);
+        // Runtime path: MCP client -> TARS gateway -> policy engine -> upstream server -> response guard -> client
+        const result = await this.gateway.handleToolCall(gatewayRequest);
 
-      // BLOCK: Denied before upstream execution
-      if (result.action === 'BLOCK') {
+        // BLOCK: Denied before upstream execution
+        if (result.action === 'BLOCK') {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `[TARS SECURITY BLOCK] Tool '${toolName}' execution was denied: ${result.error}`,
+              },
+            ],
+          };
+        }
+
+        // REQUIRE_APPROVAL: Non-executing until approval is implemented
+        if (result.action === 'REQUIRE_APPROVAL') {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `[TARS APPROVAL REQUIRED] Tool '${toolName}' is suspended pending human approval. RequestId: ${requestId}`,
+              },
+            ],
+          };
+        }
+
+        // ALLOW: Successfully executed by upstream with response guard redactions
+        if (!result.success) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `[TARS UPSTREAM ERROR] Tool '${toolName}' failed during upstream execution: ${result.error}`,
+              },
+            ],
+          };
+        }
+
+        // Standard MCP CallToolResult unwrapping if upstream returned structured content array
+        if (
+          result.content &&
+          typeof result.content === 'object' &&
+          Array.isArray((result.content as { content?: unknown[] }).content)
+        ) {
+          return {
+            content: (result.content as { content: Array<{ type: string; text?: string }> }).content,
+          };
+        }
+
+        const textOutput =
+          typeof result.content === 'string'
+            ? result.content
+            : JSON.stringify(result.content, null, 2);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: textOutput,
+            },
+          ],
+        };
+      } catch (err: unknown) {
+        const rawErr = err instanceof Error ? err.message : String(err);
+        const sanitizedErr = redactString(rawErr).output;
         return {
           isError: true,
           content: [
             {
               type: 'text',
-              text: `[TARS SECURITY BLOCK] Tool '${toolName}' execution was denied: ${result.error}`,
+              text: `[TARS GATEWAY ERROR] Internal error handling tool '${toolName}': ${sanitizedErr}`,
             },
           ],
         };
       }
-
-      // REQUIRE_APPROVAL: Non-executing until approval is implemented
-      if (result.action === 'REQUIRE_APPROVAL') {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `[TARS APPROVAL REQUIRED] Tool '${toolName}' is suspended pending human approval. RequestId: ${requestId}`,
-            },
-          ],
-        };
-      }
-
-      // ALLOW: Successfully executed by upstream with response guard redactions
-      if (!result.success) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `[TARS UPSTREAM ERROR] Tool '${toolName}' failed during upstream execution: ${result.error}`,
-            },
-          ],
-        };
-      }
-
-      const textOutput =
-        typeof result.content === 'string'
-          ? result.content
-          : JSON.stringify(result.content, null, 2);
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: textOutput,
-          },
-        ],
-      };
     });
   }
 }
