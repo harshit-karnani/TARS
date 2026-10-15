@@ -1,10 +1,7 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { ToolCallRequest, ToolCallResponse, GatewayConfig } from '@tars/shared-types';
-import { redactPayload } from '../security/redactor.js';
-import { inspectContentForInjection } from '../security/injection-detector.js';
+import { redactPayload, redactString } from '../security/redactor.js';
 
 export interface IMcpForwarder {
   forwardToolCall(request: ToolCallRequest): Promise<ToolCallResponse>;
@@ -121,25 +118,6 @@ export class McpForwarder implements IMcpForwarder {
         wasRedacted = redaction.wasRedacted;
       }
 
-      // Content Guard: Inspect retrieved content for prompt injection attacks
-      let stringifiedContent = '';
-      if (typeof sanitizedContent === 'string') {
-        stringifiedContent = sanitizedContent;
-      } else if (typeof sanitizedContent === 'object' && sanitizedContent !== null) {
-        const obj = sanitizedContent as Record<string, unknown>;
-        if (typeof obj.content === 'string') {
-          stringifiedContent = obj.content;
-        } else if (Array.isArray(obj.content)) {
-          stringifiedContent = obj.content
-            .map((c) => (typeof c === 'string' ? c : typeof c === 'object' && c && 'text' in c ? String((c as any).text) : ''))
-            .join('\n');
-        } else {
-          stringifiedContent = JSON.stringify(sanitizedContent);
-        }
-      }
-
-      const contentInspection = inspectContentForInjection(stringifiedContent);
-
       const latencyMs = Math.round((performance.now() - startTime) * 100) / 100;
 
       // 1. Detect official MCP SDK tool result's isError === true field
@@ -149,56 +127,20 @@ export class McpForwarder implements IMcpForwarder {
         (sanitizedContent as { isError?: unknown }).isError === true;
 
       if (isMcpToolError) {
-        const extractedMsg = this.extractErrorMessage(sanitizedContent);
+        let extractedMsg = this.extractErrorMessage(sanitizedContent);
+        if (this.config.enableRedaction) {
+          const redactedErr = redactString(extractedMsg);
+          extractedMsg = redactedErr.output;
+          if (redactedErr.redactedTypes.length > 0) {
+            wasRedacted = true;
+          }
+        }
         return {
           requestId: request.requestId,
           action: 'ALLOW',
           success: false,
           error: `Upstream tool execution error: ${extractedMsg}`,
           content: sanitizedContent,
-          latencyMs,
-          redacted: wasRedacted,
-        };
-      }
-
-      // If retrieved content contains high-confidence malicious instructions, deterministically BLOCK
-      if (contentInspection.action === 'BLOCK') {
-        return {
-          requestId: request.requestId,
-          action: 'BLOCK',
-          success: false,
-          error: contentInspection.reason,
-          content: {
-            status: 'CONTENT_BLOCKED',
-            reason: contentInspection.reason,
-            confidence: contentInspection.confidence,
-            patterns: contentInspection.matchedPatterns,
-          },
-          latencyMs,
-          redacted: wasRedacted,
-        };
-      }
-
-      // If ambiguous, return warning annotation alongside content and flag for review
-      if (contentInspection.action === 'FLAG_FOR_REVIEW') {
-        let contentWithWarning = sanitizedContent;
-        if (typeof sanitizedContent === 'object' && sanitizedContent !== null && !Array.isArray(sanitizedContent)) {
-          contentWithWarning = {
-            ...(sanitizedContent as Record<string, unknown>),
-            _securityReview: {
-              flagged: true,
-              confidence: contentInspection.confidence,
-              reason: contentInspection.reason,
-              matchedPatterns: contentInspection.matchedPatterns,
-            },
-          };
-        }
-
-        return {
-          requestId: request.requestId,
-          action: 'ALLOW',
-          success: true,
-          content: contentWithWarning,
           latencyMs,
           redacted: wasRedacted,
         };
@@ -215,13 +157,22 @@ export class McpForwarder implements IMcpForwarder {
     } catch (err: unknown) {
       const latencyMs = Math.round((performance.now() - startTime) * 100) / 100;
       const errorMsg = err instanceof Error ? err.message : String(err);
+      let sanitizedError = `Upstream tool execution error: ${errorMsg}`;
+      let wasRedacted = false;
+
+      if (this.config.enableRedaction) {
+        const errorRedaction = redactString(sanitizedError);
+        sanitizedError = errorRedaction.output;
+        wasRedacted = errorRedaction.redactedTypes.length > 0;
+      }
 
       return {
         requestId: request.requestId,
         action: 'ALLOW', // The policy allowed it, but execution failed at the upstream layer
         success: false,
-        error: `Upstream tool execution error: ${errorMsg}`,
+        error: sanitizedError,
         latencyMs,
+        redacted: wasRedacted,
       };
     }
   }
@@ -301,31 +252,11 @@ export class McpForwarder implements IMcpForwarder {
     switch (request.toolName) {
       case 'read_file': {
         const filePath = String(request.arguments.filePath || request.arguments.path || 'sample.txt');
-        // If file exists on disk (e.g. mcp-test-data/safe.txt), read actual content so content inspection & redaction runs on real fixtures
-        let fileContent = `Contents of safe file: ${filePath}. (Simulated safe read output from upstream MCP server)`;
-        let sizeBytes = 1024;
-        try {
-          const candidates = [
-            filePath,
-            path.resolve(process.cwd(), filePath),
-            path.resolve(process.cwd(), '..', '..', filePath),
-            path.resolve(process.cwd(), '..', filePath),
-          ];
-          for (const cand of candidates) {
-            if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
-              fileContent = fs.readFileSync(cand, 'utf8');
-              sizeBytes = Buffer.byteLength(fileContent, 'utf8');
-              break;
-            }
-          }
-        } catch {
-          // Fallback to default simulated content
-        }
         return {
           _source: '[SIMULATED_UPSTREAM_MCP_EXECUTION]',
           filePath,
-          content: fileContent,
-          sizeBytes,
+          content: `Contents of safe file: ${filePath}. (Simulated safe read output from upstream MCP server)`,
+          sizeBytes: 1024,
         };
       }
 
