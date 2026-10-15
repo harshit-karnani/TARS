@@ -104,6 +104,7 @@ export interface AuditEvent {
  * Query filter criteria for querying the audit log via API or storage.
  */
 export interface AuditLogQueryFilter {
+  requestId?: string;
   tool?: string;
   action?: SecurityAction;
   executionStatus?: AuditExecutionStatus;

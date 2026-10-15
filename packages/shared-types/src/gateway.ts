@@ -86,6 +86,48 @@ export interface ToolCallResponse {
 }
 
 /**
+ * A pending approval request queued in gateway memory awaiting authorized human review.
+ */
+export interface PendingApproval {
+  requestId: string;
+  eventId: string;
+  toolName: string;
+  serverId?: string;
+  clientIdentity?: string;
+  arguments: Record<string, unknown>;
+  sanitizedArguments?: Record<string, unknown>;
+  reasonCode: string;
+  policyVersion: string;
+  contractVersion?: string;
+  createdAt: number;
+  expiresAt: number;
+  decisionEvidence?: DecisionEvidence;
+}
+
+/**
+ * Payload sent to POST /api/approvals/decision
+ */
+export interface ApprovalDecisionRequest {
+  requestId: string;
+  decision: 'APPROVE' | 'REJECT';
+  approver?: string;
+  reason?: string;
+}
+
+/**
+ * Result returned by POST /api/approvals/decision
+ */
+export interface ApprovalDecisionResult {
+  requestId: string;
+  decision: 'APPROVE' | 'REJECT';
+  executionStatus: 'SUCCESS' | 'ERROR' | 'BLOCKED';
+  executed: boolean;
+  result?: ToolCallResponse;
+  auditEventId: string;
+  message: string;
+}
+
+/**
  * Standard API envelope for REST/SSE communication between Gateway and Dashboard.
  */
 export interface ApiResponse<T> {

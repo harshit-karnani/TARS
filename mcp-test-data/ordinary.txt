@@ -1,0 +1,3 @@
+This is an ordinary document with harmless text.
+It describes general project documentation and guidelines.
+No secrets, credentials, or malicious instructions are present.

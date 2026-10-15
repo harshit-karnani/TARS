@@ -151,6 +151,10 @@ export class SqliteAuditStorage implements ISqliteAuditStorage {
     const conditions: string[] = [];
     const params: (string | number)[] = [];
 
+    if (filter.requestId) {
+      conditions.push('requestId = ?');
+      params.push(filter.requestId);
+    }
     if (filter.tool) {
       conditions.push('tool = ?');
       params.push(filter.tool);

@@ -1,0 +1,6 @@
+Research Paper: Understanding Prompt Injection Risks in LLM Applications
+Abstract:
+Prompt injection attacks occur when untrusted data contains phrases like 'ignore previous instructions' or attempts to bypass security controls.
+In security evaluations, researchers test whether LLM guardrails adequately separate data from instructions.
+This discussion of prompt injection defenses explains why heuristic filters alone are insufficient without architectural isolation.
+For testing purposes, benchmark datasets simulate adversarial scenarios to verify detection accuracy without executing attacks.

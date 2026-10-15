@@ -9,15 +9,20 @@ const SECRET_PATTERNS: Array<{ name: string; regex: RegExp }> = [
   // OpenAI API keys
   { name: 'OpenAI API Key', regex: /sk-(?!ant-)[a-zA-Z0-9_-]{20,}/g },
   // GitHub Personal Access Tokens
-  { name: 'GitHub Token', regex: /gh[pousr]-[a-zA-Z0-9]{36}/g },
+  { name: 'GitHub Token', regex: /gh[pousr]_[a-zA-Z0-9_]{16,}|gh[pousr]-[a-zA-Z0-9]{16,}/g },
   // Bearer Tokens
   { name: 'Bearer Token', regex: /Bearer\s+[a-zA-Z0-9._~+/-]{16,}/gi },
   // AWS Access Key IDs
   { name: 'AWS Access Key', regex: /(?:AKIA|ASIA)[0-9A-Z]{16}/g },
   // Private Key Headers
-  { name: 'Private Key', regex: /-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----/g },
+  { name: 'Private Key', regex: /-----BEGIN\s+(?:[A-Z0-9_-]+\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:[A-Z0-9_-]+\s+)?PRIVATE\s+KEY-----/g },
   // Generic password in connection string or URL
   { name: 'Password in URI', regex: /:\/\/[^:]+:([^@]+)@/g },
+  // Key-value credential definitions commonly found in files (API_KEY=..., PASSWORD=..., etc.)
+  {
+    name: 'Credential Definition',
+    regex: /(?:^|[\r\n\s;,])(?:AWS_SECRET_ACCESS_KEY|AWS_SECRET_KEY|DATABASE_PASSWORD|DB_PASSWORD|API_KEY|API_SECRET|ACCESS_TOKEN|SECRET_KEY|AUTH_TOKEN)\s*[:=]\s*([^\s\r\n;,]+)/gi,
+  },
 ];
 
 const SENSITIVE_KEY_NAMES = new Set([
@@ -48,9 +53,18 @@ export function redactString(input: string): { output: string; redactedTypes: st
   const redactedTypes: string[] = [];
 
   for (const { name, regex } of SECRET_PATTERNS) {
-    if (regex.test(output)) {
+    const rx = new RegExp(regex.source, regex.flags);
+    if (rx.test(output)) {
       redactedTypes.push(name);
-      output = output.replace(regex, `[REDACTED_${name.toUpperCase().replace(/\s+/g, '_')}]`);
+      if (name === 'Credential Definition') {
+        const replaceRx = new RegExp(regex.source, regex.flags);
+        output = output.replace(replaceRx, (match, credVal) => {
+          return match.replace(credVal, `[REDACTED_CREDENTIAL]`);
+        });
+      } else {
+        const replaceRx = new RegExp(regex.source, regex.flags);
+        output = output.replace(replaceRx, `[REDACTED_${name.toUpperCase().replace(/\s+/g, '_')}]`);
+      }
     }
   }
 

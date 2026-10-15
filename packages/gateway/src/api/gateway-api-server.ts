@@ -8,6 +8,9 @@ import type {
   ToolContract,
   ContractDriftResult,
   ReplayRunSummary,
+  PendingApproval,
+  ApprovalDecisionRequest,
+  ApprovalDecisionResult,
 } from '@tars/shared-types';
 import type { TarsGateway } from '../gateway.js';
 import type { EventBroadcaster } from './event-broadcaster.js';
@@ -51,6 +54,9 @@ export class GatewayApiServer {
   public async stop(): Promise<void> {
     return new Promise((resolve) => {
       if (this.server) {
+        if (typeof (this.server as any).closeAllConnections === 'function') {
+          (this.server as any).closeAllConnections();
+        }
         this.server.close(() => {
           this.server = null;
           resolve();
@@ -246,7 +252,95 @@ export class GatewayApiServer {
         }
       }
 
-      // 8. Intercept Tool Call (Direct API execution / Replay endpoint): POST /api/intercept
+      // 8. Pending Approvals: GET /api/approvals/pending
+      if (pathname === '/api/approvals/pending' && req.method === 'GET') {
+        const pending = this.gateway.listPendingApprovals();
+        this.sendJson<PendingApproval[]>(res, 200, {
+          success: true,
+          data: pending,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // 9. Process Approval Decision: POST /api/approvals/decision
+      if (pathname === '/api/approvals/decision' && req.method === 'POST') {
+        // Enforce authorization: Check Authorization header
+        const authHeader = req.headers.authorization;
+        const expectedToken = process.env.APPROVAL_TOKEN || 'tars-admin-token';
+        
+        let isAuthorized = false;
+        if (authHeader) {
+          const parts = authHeader.split(' ');
+          if (parts.length === 2 && (parts[0] === 'Bearer' || parts[0] === 'Token')) {
+            if (parts[1] === expectedToken) {
+              isAuthorized = true;
+            }
+          }
+        }
+
+        if (!isAuthorized) {
+          this.sendJson(res, 401, {
+            success: false,
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Authentication required to approve or reject security sensitive operations.',
+            },
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        const body = await this.readJsonBody<ApprovalDecisionRequest>(req);
+        if (!body || !body.requestId || !body.decision || (body.decision !== 'APPROVE' && body.decision !== 'REJECT')) {
+          this.sendJson(res, 400, {
+            success: false,
+            error: {
+              code: 'BAD_REQUEST',
+              message: 'Valid requestId and decision (APPROVE | REJECT) are required.',
+            },
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+
+        try {
+          const result = await this.gateway.resolveApproval(
+            body.requestId,
+            body.decision,
+            body.approver || 'dashboard-admin',
+            body.reason
+          );
+
+          this.sendJson<ApprovalDecisionResult>(res, 200, {
+            success: true,
+            data: result,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        } catch (resolveErr: any) {
+          const code = resolveErr.code || 'APPROVAL_ERROR';
+          let statusCode = 400;
+          if (code === 'DUPLICATE_APPROVAL') {
+            statusCode = 409;
+          } else if (code === 'APPROVAL_EXPIRED') {
+            statusCode = 410;
+          } else if (code === 'APPROVAL_NOT_FOUND') {
+            statusCode = 404;
+          }
+          this.sendJson(res, statusCode, {
+            success: false,
+            error: {
+              code,
+              message: resolveErr.message || 'Error processing approval decision',
+            },
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      }
+
+      // 10. Intercept Tool Call (Direct API execution / Replay endpoint): POST /api/intercept
       if (pathname === '/api/intercept' && req.method === 'POST') {
         const body = await this.readJsonBody<ToolCallRequest & { tool?: string; parameters?: Record<string, unknown> }>(req);
         const toolName = body?.toolName || body?.tool;
@@ -302,7 +396,12 @@ export class GatewayApiServer {
   }
 
   private sendJson<T>(res: http.ServerResponse, statusCode: number, data: ApiResponse<T>): void {
-    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    res.writeHead(statusCode, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
     res.end(JSON.stringify(data));
   }
 

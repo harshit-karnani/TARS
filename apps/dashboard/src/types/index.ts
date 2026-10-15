@@ -164,3 +164,37 @@ export interface DecisionEvidenceItem {
   redactedPayloadPreview?: string
   auditRecordReference: string
 }
+
+// Approval Workflow Types
+export interface PendingApproval {
+  requestId: string
+  eventId: string
+  toolName: string
+  serverId?: string
+  clientIdentity?: string
+  arguments: Record<string, unknown>
+  sanitizedArguments?: Record<string, unknown>
+  reasonCode: string
+  policyVersion: string
+  contractVersion?: string
+  createdAt: number
+  expiresAt: number
+  decisionEvidence?: AuditEvent['decisionEvidence']
+}
+
+export interface ApprovalDecisionRequest {
+  requestId: string
+  decision: 'APPROVE' | 'REJECT'
+  approver?: string
+  reason?: string
+}
+
+export interface ApprovalDecisionResult {
+  requestId: string
+  decision: 'APPROVE' | 'REJECT'
+  executionStatus: 'SUCCESS' | 'ERROR' | 'BLOCKED'
+  executed: boolean
+  result?: unknown
+  auditEventId: string
+  message: string
+}

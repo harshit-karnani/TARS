@@ -9,7 +9,7 @@ export async function main() {
   const upstreamArgs = process.env.UPSTREAM_ARGS ? process.env.UPSTREAM_ARGS.split(' ') : undefined;
   const enableRedaction = process.env.ENABLE_REDACTION !== 'false';
   const allowUnknownTools = process.env.ALLOW_UNKNOWN_TOOLS === 'true';
-  const enableMlShadowScoring = process.env.ENABLE_ML_SHADOW_SCORING === 'true';
+  const enableMlShadowScoring = process.env.ENABLE_ML_SHADOW_SCORING !== 'false';
   const mlScoringEndpoint = process.env.ML_SCORING_ENDPOINT || 'http://127.0.0.1:8000';
   const stdioMode = process.env.MCP_STDIO_MODE === 'true';
 

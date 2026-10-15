@@ -12,6 +12,8 @@ import {
   Radio,
   ChevronDown,
   ChevronRight,
+  Check,
+  X,
 } from 'lucide-react'
 import type { AuditEvent, SecurityAction } from '../../types'
 import { formatIST } from '../../utils/formatTime'
@@ -39,39 +41,105 @@ export const SecurityEventsPage: React.FC<{
   // Expanded row detail
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
+  // Approval action in-flight and status feedback
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [approvalFeedback, setApprovalFeedback] = useState<{ id: string; success: boolean; message: string } | null>(null)
+
   // Pagination (bounded event loading)
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
 
-  const loadEvents = async () => {
-    setLoading(true)
+  const handleApprovalAction = async (evt: AuditEvent, decision: 'APPROVE' | 'REJECT') => {
+    setActionLoadingId(evt.id)
+    setApprovalFeedback(null)
+    try {
+      const res = await apiClient.submitApprovalDecision(
+        evt.requestId,
+        decision,
+        'dashboard-admin',
+        decision === 'APPROVE' ? 'Approved via TARS Security Console' : 'Rejected via TARS Security Console'
+      )
+
+      if (res.error) {
+        setApprovalFeedback({
+          id: evt.id,
+          success: false,
+          message: res.error,
+        })
+      } else {
+        setApprovalFeedback({
+          id: evt.id,
+          success: true,
+          message: res.data?.message || (decision === 'APPROVE' ? 'Operation approved & executed' : 'Operation rejected'),
+        })
+        // Immediately reload events to update UI with latest state from gateway
+        await loadEvents()
+      }
+    } catch (err: any) {
+      setApprovalFeedback({
+        id: evt.id,
+        success: false,
+        message: err.message || 'Failed to submit approval decision',
+      })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const loadEvents = async (isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true)
+    }
     try {
       const result = await apiClient.getEvents({
         action: filterAction,
         tool: filterTool !== 'ALL' ? filterTool : undefined,
       })
-      setEvents(result.data || [])
-      setApiError(result.error || null)
+      if (result.data) {
+        setEvents((prev) => {
+          // Merge newly fetched events with prev to avoid duplicates and ensure immediate update
+          const merged = [...result.data]
+          const existingIds = new Set(result.data.map((e) => e.id))
+          for (const item of prev) {
+            if (!existingIds.has(item.id)) {
+              merged.push(item)
+            }
+          }
+          // Sort chronologically descending
+          merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          return merged
+        })
+        setApiError(null)
+      } else if (result.error) {
+        setApiError(result.error)
+      }
     } catch (err) {
-      setEvents([])
+      if (!isBackground) {
+        setEvents([])
+      }
       setApiError(err instanceof Error ? err.message : 'Failed to query gateway events')
     } finally {
-      setLoading(false)
+      if (!isBackground) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    loadEvents()
+    // Initial fetch with spinner
+    loadEvents(false)
 
+    // Poll every 2000ms seamlessly in background
     const intervalId = setInterval(() => {
-      loadEvents()
+      loadEvents(true)
     }, 2000)
 
+    // Real-time SSE stream listener for instantaneous (<100ms) event push
     const unsubscribe = apiClient.subscribeEventStream(
       (newEvent) => {
         setEvents((prev) => {
           if (prev.some((e) => e.id === newEvent.id)) return prev
-          return [newEvent, ...prev.slice(0, 99)]
+          return [newEvent, ...prev]
         })
       },
       (status) => {
@@ -179,7 +247,7 @@ export const SecurityEventsPage: React.FC<{
             {sseState.connected ? 'LIVE SSE' : apiError ? 'API ERROR' : sseState.connecting ? 'CONNECTING' : 'OFFLINE'}
           </span>
           <button
-            onClick={loadEvents}
+            onClick={() => loadEvents(false)}
             disabled={loading}
             className="p-1.5 bg-[#f4f1ea] text-[#1A1614] hover:bg-[#1A1614] hover:text-white border border-[#1A1614] transition-colors cursor-pointer"
             title="Refresh events from API"
@@ -471,13 +539,56 @@ export const SecurityEventsPage: React.FC<{
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => onInspectEvidence && onInspectEvidence(evt)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition cursor-pointer"
-                          >
-                            <Eye className="w-3 h-3 text-slate-400" />
-                            Evidence
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {evt.action === 'REQUIRE_APPROVAL' && evt.executionStatus === 'PENDING' && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={actionLoadingId === evt.id}
+                                  onClick={() => handleApprovalAction(evt, 'APPROVE')}
+                                  title="Approve mutation and execute once against upstream MCP"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-mono text-[11px] font-semibold transition cursor-pointer shadow-sm"
+                                >
+                                  {actionLoadingId === evt.id ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Check className="w-3 h-3" />
+                                  )}
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={actionLoadingId === evt.id}
+                                  onClick={() => handleApprovalAction(evt, 'REJECT')}
+                                  title="Deny mutation without execution"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-mono text-[11px] font-semibold transition cursor-pointer shadow-sm"
+                                >
+                                  {actionLoadingId === evt.id ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <X className="w-3 h-3" />
+                                  )}
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => onInspectEvidence && onInspectEvidence(evt)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3 text-slate-400" />
+                              Evidence
+                            </button>
+                          </div>
+                          {approvalFeedback && approvalFeedback.id === evt.id && (
+                            <div
+                              className={`mt-1 font-mono text-[10px] text-right ${
+                                approvalFeedback.success ? 'text-emerald-400' : 'text-rose-400'
+                              }`}
+                            >
+                              {approvalFeedback.message}
+                            </div>
+                          )}
                         </td>
                       </tr>
 

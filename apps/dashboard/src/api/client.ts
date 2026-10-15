@@ -107,8 +107,8 @@ export class TarsApiClient {
     const params = new URLSearchParams()
     if (query?.tool) params.set('tool', query.tool)
     if (query?.action && query.action !== 'ALL') params.set('action', query.action)
-    if (query?.limit) params.set('limit', String(query.limit))
-    if (query?.offset) params.set('offset', String(query.offset))
+    params.set('limit', String(query?.limit || 100))
+    if (query?.offset !== undefined) params.set('offset', String(query.offset))
 
     const queryString = params.toString() ? `?${params.toString()}` : ''
     const url = `${this.baseUrl}/api/events${queryString}`
@@ -119,7 +119,12 @@ export class TarsApiClient {
 
       const res = await fetch(url, {
         signal: controller.signal,
-        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
       })
       clearTimeout(timeoutId)
 
@@ -206,6 +211,51 @@ export class TarsApiClient {
   async runReplaySuite(): Promise<ApiFetchResult<ReplayRunSummary>> {
     return this.fetchEnvelope<ReplayRunSummary>('/api/replay/run', {
       method: 'POST',
+    })
+  }
+
+  /**
+   * GET /api/approvals/pending
+   * Returns list of currently active pending approvals waiting for human authorization
+   */
+  async getPendingApprovals(): Promise<ApiFetchResult<any[]>> {
+    const res = await this.fetchEnvelope<any[]>('/api/approvals/pending')
+    if (res.error || !res.data) {
+      return {
+        data: [],
+        isFromMock: false,
+        error: res.error,
+        rawEnvelope: res.rawEnvelope,
+      }
+    }
+    return res
+  }
+
+  /**
+   * POST /api/approvals/decision
+   * Authenticated approval / rejection of a pending tool mutation
+   */
+  async submitApprovalDecision(
+    requestId: string,
+    decision: 'APPROVE' | 'REJECT',
+    approver: string = 'dashboard-admin',
+    reason?: string
+  ): Promise<ApiFetchResult<any>> {
+    const token = typeof import.meta !== 'undefined' && import.meta.env?.VITE_APPROVAL_TOKEN
+      ? import.meta.env.VITE_APPROVAL_TOKEN
+      : 'tars-admin-token'
+
+    return this.fetchEnvelope<any>('/api/approvals/decision', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        requestId,
+        decision,
+        approver,
+        reason,
+      }),
     })
   }
 

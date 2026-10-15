@@ -8,7 +8,7 @@ export const DEFAULT_GATEWAY_CONFIG: GatewayConfig = {
   policyVersion: '1.0.0',
   enableRedaction: true,
   allowUnknownTools: false,
-  enableMlShadowScoring: false,
+  enableMlShadowScoring: true,
   mlScoringEndpoint: 'http://127.0.0.1:8000',
 };
 

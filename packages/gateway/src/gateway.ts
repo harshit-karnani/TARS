@@ -6,6 +6,8 @@ import type {
   AuditEvent,
   DecisionEvidence,
   MlShadowPrediction,
+  PendingApproval,
+  ApprovalDecisionResult,
 } from '@tars/shared-types';
 import { resolveGatewayConfig } from './config.js';
 import { PolicyEngine } from './policy/policy-engine.js';
@@ -41,6 +43,7 @@ export class TarsGateway {
   private mlShadowClient: IMlShadowClient | null = null;
   private apiServer: GatewayApiServer | null = null;
   private isRunning: boolean = false;
+  private pendingApprovals: Map<string, PendingApproval> = new Map();
 
   constructor(
     config?: Partial<GatewayConfig>,
@@ -272,11 +275,12 @@ export class TarsGateway {
       };
     }
 
-    // 2. Policy REQUIRE_APPROVAL — Non-executing until approval is implemented
+    // 2. Policy REQUIRE_APPROVAL — Stored in pending queue awaiting human authorization
     if (decision.action === 'REQUIRE_APPROVAL') {
       const latencyMs = Math.round((performance.now() - startTime) * 100) / 100;
+      const eventId = `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const event: AuditEvent = {
-        id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: eventId,
         requestId: request.requestId,
         timestamp: new Date().toISOString(),
         serverId: request.serverId,
@@ -291,6 +295,24 @@ export class TarsGateway {
         decisionEvidence: decisionEvidenceWithShadow,
         latencyMs,
       };
+
+      const now = Date.now();
+      const pending: PendingApproval = {
+        requestId: request.requestId,
+        eventId,
+        toolName: request.toolName,
+        serverId: request.serverId,
+        clientIdentity: request.clientIdentity,
+        arguments: request.arguments,
+        sanitizedArguments: decision.sanitizedArguments,
+        reasonCode: decision.reasonCode,
+        policyVersion: decision.policyVersion,
+        contractVersion: decision.contractVersion,
+        createdAt: now,
+        expiresAt: now + 300000, // 5 minutes TTL
+        decisionEvidence: decisionEvidenceWithShadow,
+      };
+      this.pendingApprovals.set(request.requestId, pending);
 
       await this.auditStorage.recordEvent(event);
       this.broadcaster.broadcast(event);
@@ -313,22 +335,35 @@ export class TarsGateway {
     const response = await this.forwarder.forwardToolCall(forwardedRequest);
     const totalLatencyMs = Math.round((performance.now() - startTime) * 100) / 100;
 
+    const finalAction = response.action;
+    let executionStatus: AuditEvent['executionStatus'] = response.success ? 'SUCCESS' : 'ERROR';
+    if (finalAction === 'BLOCK') {
+      executionStatus = 'BLOCKED';
+    }
+
     const event: AuditEvent = {
       id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       requestId: request.requestId,
       timestamp: new Date().toISOString(),
       serverId: request.serverId,
       tool: request.toolName,
-      action: 'ALLOW',
-      reasonCode: decision.reasonCode,
-      executionStatus: response.success ? 'SUCCESS' : 'ERROR',
+      action: finalAction,
+      reasonCode: finalAction === 'BLOCK' ? 'PROMPT_INJECTION_RISK' : decision.reasonCode,
+      executionStatus,
       policyVersion: decision.policyVersion,
       contractVersion: decision.contractVersion,
       clientIdentity: request.clientIdentity,
       parameters: decision.sanitizedArguments,
       redacted: response.redacted,
       latencyMs: totalLatencyMs,
-      decisionEvidence: decisionEvidenceWithShadow,
+      decisionEvidence: {
+        ...decisionEvidenceWithShadow,
+        evaluatedChecks: [
+          ...decisionEvidenceWithShadow.evaluatedChecks,
+          'content_injection_inspection',
+          ...(response.redacted ? ['content_secret_redaction'] : []),
+        ],
+      },
       errorMessage: response.error,
     };
 
@@ -338,6 +373,176 @@ export class TarsGateway {
     return {
       ...response,
       latencyMs: totalLatencyMs,
+    };
+  }
+
+  /**
+   * Returns list of currently active pending approvals (filtering expired ones).
+   */
+  public listPendingApprovals(): PendingApproval[] {
+    const now = Date.now();
+    const active: PendingApproval[] = [];
+    for (const [reqId, pending] of this.pendingApprovals.entries()) {
+      if (now > pending.expiresAt) {
+        this.pendingApprovals.delete(reqId);
+      } else {
+        active.push({ ...pending });
+      }
+    }
+    return active;
+  }
+
+  /**
+   * Gets a specific pending approval by requestId.
+   */
+  public getPendingApproval(requestId: string): PendingApproval | undefined {
+    const pending = this.pendingApprovals.get(requestId);
+    if (!pending) return undefined;
+    if (Date.now() > pending.expiresAt) {
+      this.pendingApprovals.delete(requestId);
+      return undefined;
+    }
+    return { ...pending };
+  }
+
+  /**
+   * Resolves a pending approval atomically.
+   * Ensures exactly-once execution: removing from the pending map immediately prevents duplicate execution.
+   */
+  public async resolveApproval(
+    requestId: string,
+    decision: 'APPROVE' | 'REJECT',
+    approver: string = 'dashboard-admin',
+    reason?: string
+  ): Promise<ApprovalDecisionResult> {
+    const pending = this.pendingApprovals.get(requestId);
+
+    if (!pending) {
+      // Check if it already exists in audit events to distinguish duplicate click from not found
+      const existingEvents = await this.auditStorage.queryEvents({ requestId });
+      const isAlreadyResolved = existingEvents.some(
+        (e) => e.executionStatus === 'SUCCESS' || e.executionStatus === 'BLOCKED' || e.executionStatus === 'ERROR'
+      );
+
+      if (isAlreadyResolved) {
+        const err = new Error(`Approval request '${requestId}' has already been processed.`);
+        (err as any).code = 'DUPLICATE_APPROVAL';
+        throw err;
+      }
+
+      const err = new Error(`Pending approval for requestId '${requestId}' not found or expired.`);
+      (err as any).code = 'APPROVAL_NOT_FOUND';
+      throw err;
+    }
+
+    if (Date.now() > pending.expiresAt) {
+      this.pendingApprovals.delete(requestId);
+      const err = new Error(`Pending approval for requestId '${requestId}' has expired.`);
+      (err as any).code = 'APPROVAL_EXPIRED';
+      throw err;
+    }
+
+    // Atomically remove to guarantee exactly-once execution
+    this.pendingApprovals.delete(requestId);
+
+    const startTime = performance.now();
+
+    if (decision === 'REJECT') {
+      const rejectLatency = Math.round((performance.now() - startTime) * 100) / 100;
+      const rejectEvent: AuditEvent = {
+        id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        requestId: pending.requestId,
+        timestamp: new Date().toISOString(),
+        serverId: pending.serverId,
+        tool: pending.toolName,
+        action: 'BLOCK',
+        reasonCode: 'APPROVAL_REJECTED',
+        executionStatus: 'BLOCKED',
+        policyVersion: pending.policyVersion,
+        contractVersion: pending.contractVersion,
+        clientIdentity: pending.clientIdentity,
+        parameters: pending.sanitizedArguments,
+        decisionEvidence: {
+          ...(pending.decisionEvidence || { evaluatedChecks: [] }),
+          evaluatedChecks: [
+            ...(pending.decisionEvidence?.evaluatedChecks || []),
+            'human_approval_decision',
+          ],
+          notes: `Rejected by approver: ${approver}${reason ? ` (${reason})` : ''}`,
+        },
+        latencyMs: rejectLatency,
+        errorMessage: `Operation rejected by approver ${approver}`,
+      };
+
+      await this.auditStorage.recordEvent(rejectEvent);
+      this.broadcaster.broadcast(rejectEvent);
+
+      return {
+        requestId: pending.requestId,
+        decision: 'REJECT',
+        executionStatus: 'BLOCKED',
+        executed: false,
+        auditEventId: rejectEvent.id,
+        message: `Operation rejected by ${approver}`,
+      };
+    }
+
+    // APPROVE: Execute the original validated operation against upstream MCP forwarder
+    const forwardedRequest: ToolCallRequest = {
+      requestId: pending.requestId,
+      toolName: pending.toolName,
+      serverId: pending.serverId,
+      arguments: pending.sanitizedArguments || pending.arguments,
+      clientIdentity: pending.clientIdentity,
+      timestamp: new Date().toISOString(),
+    };
+
+    const response = await this.forwarder.forwardToolCall(forwardedRequest);
+    const executionLatency = Math.round((performance.now() - startTime) * 100) / 100;
+
+    let executionStatus: AuditEvent['executionStatus'] = response.success ? 'SUCCESS' : 'ERROR';
+    if (response.action === 'BLOCK') {
+      executionStatus = 'BLOCKED';
+    }
+
+    const approvedEvent: AuditEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      requestId: pending.requestId,
+      timestamp: new Date().toISOString(),
+      serverId: pending.serverId,
+      tool: pending.toolName,
+      action: response.action,
+      reasonCode: response.action === 'BLOCK' ? 'PROMPT_INJECTION_RISK' : 'APPROVAL_GRANTED',
+      executionStatus,
+      policyVersion: pending.policyVersion,
+      contractVersion: pending.contractVersion,
+      clientIdentity: pending.clientIdentity,
+      parameters: pending.sanitizedArguments,
+      redacted: response.redacted,
+      latencyMs: executionLatency,
+      decisionEvidence: {
+        ...(pending.decisionEvidence || { evaluatedChecks: [] }),
+        evaluatedChecks: [
+          ...(pending.decisionEvidence?.evaluatedChecks || []),
+          'human_approval_granted',
+          'post_approval_upstream_execution',
+        ],
+        notes: `Approved and executed by authorized approver: ${approver}${reason ? ` (${reason})` : ''}`,
+      },
+      errorMessage: response.error,
+    };
+
+    await this.auditStorage.recordEvent(approvedEvent);
+    this.broadcaster.broadcast(approvedEvent);
+
+    return {
+      requestId: pending.requestId,
+      decision: 'APPROVE',
+      executionStatus,
+      executed: true,
+      result: response,
+      auditEventId: approvedEvent.id,
+      message: `Operation approved and executed successfully by ${approver}`,
     };
   }
 

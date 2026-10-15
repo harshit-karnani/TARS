@@ -295,4 +295,62 @@ describe('TarsGateway Core & Security Suite', () => {
 
     await testGateway.shutdown();
   });
+
+  it('reads safe.txt through simulated fallback with secrets redacted', async () => {
+    const res = await gateway.handleToolCall({
+      requestId: 'req-fixture-safe-read',
+      toolName: 'read_file',
+      arguments: { path: '../../mcp-test-data/safe.txt' },
+      timestamp: new Date().toISOString(),
+    });
+
+    // Note: path containing '../../' is blocked by path-checker.
+    // Testing with direct path:
+    const safeRes = await gateway.handleToolCall({
+      requestId: 'req-fixture-safe-read-2',
+      toolName: 'read_file',
+      arguments: { path: 'mcp-test-data/safe.txt' },
+      timestamp: new Date().toISOString(),
+    });
+
+    expect(safeRes.action).toBe('ALLOW');
+    expect(safeRes.success).toBe(true);
+    expect(safeRes.redacted).toBe(true);
+
+    const textContent = JSON.stringify(safeRes.content);
+    // Real secrets redacted
+    expect(textContent).not.toContain('FAKE_TARS_KEY_123456789');
+    expect(textContent).not.toContain('AKIAFAKE123456789012');
+    expect(textContent).not.toContain('FAKE_SECRET_NOT_VALID_123456789');
+    expect(textContent).not.toContain('ghp_FAKE_TOKEN_NOT_VALID_123456789');
+    expect(textContent).toContain('[REDACTED_CREDENTIAL]');
+
+    // Audit logs verify no raw secrets
+    const storage = gateway.getAuditStorage();
+    const events = await storage.queryEvents({ requestId: 'req-fixture-safe-read-2' });
+    expect(events.length).toBe(1);
+    const auditStr = JSON.stringify(events[0]);
+    expect(auditStr).not.toContain('FAKE_TARS_KEY_123456789');
+    expect(auditStr).not.toContain('AKIAFAKE123456789012');
+  });
+
+  it('blocks reading malicious_injection.txt fixture due to high-confidence prompt injection instructions', async () => {
+    const res = await gateway.handleToolCall({
+      requestId: 'req-fixture-injection-read',
+      toolName: 'read_file',
+      arguments: { path: 'mcp-test-data/malicious_injection.txt' },
+      timestamp: new Date().toISOString(),
+    });
+
+    expect(res.action).toBe('BLOCK');
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('malicious instruction');
+
+    const storage = gateway.getAuditStorage();
+    const events = await storage.queryEvents({ requestId: 'req-fixture-injection-read' });
+    expect(events.length).toBe(1);
+    expect(events[0].action).toBe('BLOCK');
+    expect(events[0].executionStatus).toBe('BLOCKED');
+    expect(events[0].reasonCode).toBe('PROMPT_INJECTION_RISK');
+  });
 });
