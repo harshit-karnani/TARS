@@ -449,7 +449,7 @@ export const ToolContractsPage: React.FC = () => {
           ) : (
             <div className="py-16 text-center text-slate-500 text-xs">
               <FileCode className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-              Select a contract from the inventory to view hash integrity and schema drift details.
+              Select a contract from the inventory to view Canonical Definition Hash integrity and schema drift details.
             </div>
           )}
 
