@@ -4,10 +4,11 @@ import type { ToolCallRequest } from '@tars/shared-types';
 
 describe('TARS Approval Workflow — Endpoints, Authorization, & Exactly-Once Execution', () => {
   let gateway: TarsGateway;
-  const testPort = 9877;
+  let testPort = 9880;
   const adminToken = 'tars-admin-token';
 
   beforeEach(async () => {
+    testPort++;
     gateway = new TarsGateway(
       {
         port: testPort,

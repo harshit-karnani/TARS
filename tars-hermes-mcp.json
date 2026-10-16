@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "tars": {
+      "command": "node",
+      "args": [
+        "d:/HACKATHONS/REVA..HACKURITY/Tars/packages/gateway/dist/cli.js"
+      ],
+      "env": {
+        "MCP_STDIO_MODE": "true",
+        "UPSTREAM_COMMAND": "cmd",
+        "UPSTREAM_ARGS": "/c npx -y @modelcontextprotocol/server-filesystem d:/HACKATHONS/REVA..HACKURITY/Tars/mcp-test-data",
+        "ENABLE_REDACTION": "true",
+        "ALLOW_UNKNOWN_TOOLS": "false",
+        "ENABLE_ML_SHADOW_SCORING": "true",
+        "ML_SCORING_ENDPOINT": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}

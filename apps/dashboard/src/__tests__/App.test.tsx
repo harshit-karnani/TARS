@@ -1,8 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import App from '../App'
 import { apiClient } from '../api/client'
+import { MOCK_TOOL_CONTRACTS } from '../data/mockData'
+
+beforeEach(() => {
+  vi.spyOn(apiClient, 'getContracts').mockResolvedValue({
+    data: MOCK_TOOL_CONTRACTS,
+    isFromMock: true,
+  })
+})
 
 describe('TARS Dashboard Canonical Contract & API Alignment', () => {
   it('renders navigation bar with all 4 primary operational views', () => {
@@ -33,7 +41,7 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const contractsTabButton = screen.getByRole('button', { name: /Tool Contracts & Drift/i })
     fireEvent.click(contractsTabButton)
 
-    expect(screen.getByText(/Tool Contracts & Canonical Drift/i)).toBeTruthy()
+    expect(screen.getByText(/CANONICAL HASH VERIFICATION & SCHEMA DRIFT ENCLAVE/i)).toBeTruthy()
     expect(screen.getByText('Registered Tool Contracts')).toBeTruthy()
     expect(await screen.findByText(/Canonical Definition Hash/i)).toBeTruthy()
 
@@ -51,8 +59,7 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const replayTabButton = screen.getByRole('button', { name: /Replay & Regression/i })
     fireEvent.click(replayTabButton)
 
-    expect(screen.getByText(/Security Replay & Regression Suite/i)).toBeTruthy()
-    expect(screen.getByText('Replay Attack Harness')).toBeTruthy()
+    expect(screen.getByText(/ATTACK REPLAY HARNESS & REGRESSION SUITE/i)).toBeTruthy()
     expect(screen.getAllByRole('button', { name: /Run All Replay Tests/i }).length).toBeGreaterThanOrEqual(1)
   })
 
@@ -62,7 +69,7 @@ describe('TARS Dashboard Canonical Contract & API Alignment', () => {
     const evidenceTabButton = screen.getByRole('button', { name: /Decision Evidence/i })
     fireEvent.click(evidenceTabButton)
 
-    expect(screen.getAllByText(/Auditable Decision Evidence/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/AUDITABLE FORENSIC DECISION EVIDENCE/i).length).toBeGreaterThanOrEqual(1)
     // Supports either live populated event or honest empty state without crashing
     const detailOrEmpty = await screen.findByText(
       /Deterministic Policy Evaluation Breakdown|No Security Audit Records Found/i

@@ -1,7 +1,10 @@
 $env:MCP_STDIO_MODE = "true"
 $env:UPSTREAM_COMMAND = "cmd"
-$env:UPSTREAM_ARGS = "/c npx -y @modelcontextprotocol/server-filesystem D:/tars/Tars/mcp-test-data"
+$env:UPSTREAM_ARGS = "/c npx -y @modelcontextprotocol/server-filesystem `"$PSScriptRoot/mcp-test-data`""
 $env:ENABLE_REDACTION = "true"
 $env:ALLOW_UNKNOWN_TOOLS = "false"
-Set-Location "D:\tars\Tars"
-node "D:\tars\Tars\packages\gateway\dist\cli.js"
+$env:ENABLE_ML_SHADOW_SCORING = "true"
+$env:ML_SCORING_ENDPOINT = "http://127.0.0.1:8000"
+Set-Location "$PSScriptRoot"
+node "$PSScriptRoot\packages\gateway\dist\cli.js"
+

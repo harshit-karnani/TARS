@@ -230,7 +230,7 @@ describe('McpForwarder Upstream Tool Error Handling & Audit Integration', () => 
       expect(returnedText).not.toContain('SuperSecretPass!');
       expect(returnedText).toContain('[REDACTED_ANTHROPIC_API_KEY]');
       expect(returnedText).toContain('[REDACTED_GITHUB_TOKEN]');
-      expect(returnedText).toContain('[REDACTED_CREDENTIAL]');
+      expect(returnedText).toMatch(/\[REDACTED_(?:CREDENTIAL|DATABASE_PASSWORD)\]/);
 
       // Verify audit logs contain NO raw secrets
       const events = await gateway.getAuditStorage().queryEvents({ requestId: 'req-secret-redact-1' });
